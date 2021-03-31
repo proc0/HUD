@@ -1,16 +1,20 @@
 #!/bin/env bash
 
-# WINDOW
-ROWS=44
-COLS=88
+# --------
+# Settings
+# --------
 
-# PALETTE
+# COLORS
 FILL_COLOR=blue
 FONT_COLOR=white
 FORM_COLOR=cyan
 PANEL_COLOR=green
 SELECT_COLOR=brown
 FONT_SELECT_COLOR=black
+
+# --------------
+# Terminal Codes
+# --------------
 
 COLOR(){
   case $1 in
@@ -36,6 +40,26 @@ CODE(){
   esac
 }
 
+# --------------
+# Infrastructure
+# --------------
+
+Guard(){
+  if [[ -n $OFS ]]; then
+    IFS=$OFS
+  else
+    OFS=$IFS
+    IFS=''
+  fi
+
+  if [[ -n $OTTY ]]; then
+    stty $OTTY
+    OTTY=
+  else
+    OTTY=$(stty -g)
+  fi
+}
+
 Mode(){
   local toggle=$1
   local code=$2
@@ -59,20 +83,22 @@ Font(){
 }
 
 Decrease(){
-  local point=$1
-  if (( $point > 0 )); then
-    point=$(( $point - 1 ))
+  # 1. position
+  if (( $1 > 0 )); then
+    echo $(( $1 - 1 ))
+  else 
+    echo $1
   fi
-  echo $point
 }
 
 Increase(){
-  local point=$1
-  local limit=$(( $2 - 1 ))
-  if (( $point < $limit )); then
-    point=$(( $point + 1 ))
+  # 1. position
+  # 2. limit
+  if (( $1 < $2 - 1 )); then
+    echo $(( $1 + 1 ))
+  else 
+    echo $1
   fi
-  echo $point
 }
 
 Focus(){
@@ -80,6 +106,10 @@ Focus(){
   # 2. y: row
   echo "\e[$2;$1;H" 
 }
+
+# ------------
+# Constructure
+# ------------
 
 Text(){
   # 1. column
@@ -109,9 +139,9 @@ Label(){
   # 4. text
   # 5. color
   # 6. fill
-  local start="$(Box $1 $2 1 1 $6)"
-  local text="$(Text $(( $1 + 1 )) $(($2 + 1)) $4 $5)"
-  local end="$(Box $(( $1 + ${#4} + 1 )) $2 $(( $3 - ${#4} - 1 )) 1 $6)"
+  local start=$(Box $1 $2 1 1 $6)
+  local text=$(Text $(( $1 + 1 )) $(($2 + 1)) $4 $5)
+  local end=$(Box $(( $1 + ${#4} + 1 )) $2 $(( $3 - ${#4} - 1 )) 1 $6)
   echo "$start$text$end"
 }
 
@@ -124,17 +154,29 @@ Field(){
   # 6. fill
   local label=$(Label $1 $2 $3 $4 $5 $6)
   local start=$(Box $1 $(( $2 + 1 )) 1 1 $6)
-  local entry=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 $6)
+  local field=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 $6)
   local end=$(Box $(( $1 + $3 - 1 )) $(( $2 + 1 )) 1 1 $6)
-  echo "$label$start$entry$end"
+  echo "$label$start$field$end"
 }
+
+# List(){
+
+# }
+
+# Form(){
+
+# }
 
 Spawn(){
   field_boxes+=($(Field 10 10 20 'test' 'white' 'cyan'))
 }
 
+# -----------
+# Destructure
+# -----------
+
 Draw(){
-  local fill=${theme['fill']}
+  local fill=${colors['fill']}
 
   output+="$fill\e[2J"
   for i in ${!field_boxes[@]}; do
@@ -165,6 +207,10 @@ Render(){
   echo -en "$output$input_select$option_value"
   return 0
 }
+
+# ------------
+# Interaction
+# ------------
 
 Listen(){
   local intent
@@ -224,6 +270,10 @@ Control(){
   return 0
 }
 
+# -----------------
+#       Main
+# -----------------
+
 Spin(){
   local input=""
   local output=""
@@ -238,22 +288,6 @@ Spin(){
   return 0
 }
 
-Guard(){
-  if [[ -n $OFS ]]; then
-    IFS=$OFS
-  else
-    OFS=$IFS
-    IFS=''
-  fi
-
-  if [[ -n $OTTY ]]; then
-    stty $OTTY
-    OTTY=
-  else
-    OTTY=$(stty -g)
-  fi
-}
-
 Core(){
   Render
   Spin
@@ -266,19 +300,21 @@ Stop(){
 }
 
 Hud(){
-  declare -a -i focus=(0 0 0)
-  declare -a -i form_idxs=(0)
-  declare -a -i field_counts=(1)
+  # Info
   declare -a forms=(form1)
+  declare -a -i form_idxs=(0)
   declare -a fields=(field1)
+  declare -a -i field_counts=(1)
   declare -a inputs=('\e[12;11;H')
+  # State
+  declare -a -i focus=(0 0 0)
   declare -a option_values=()
-
-  declare -A theme=( 
+  # Output
+  declare -A colors=( 
     [font]=$(Font $FONT_COLOR)
     [fill]=$(Fill $FILL_COLOR)
   )
-
+  # Layout
   declare -a field_boxes=()
 
   Spawn
