@@ -61,7 +61,7 @@ Foreground(){
 Backward(){
   local point=$1
   if (( $point > 0 )); then
-    point=$(( $point - 1 ))
+    point=$(( point - 1 ))
   fi
   echo $point
 }
@@ -69,7 +69,7 @@ Backward(){
 Foreward(){
   local point=$1
   local limit=$(( $2 - 1 ))
-  if (( point < limit )); then
+  if (( $point < $limit )); then
     point=$(( point + 1 ))
   fi
   echo $point
@@ -111,6 +111,8 @@ Debug(){
 Render(){
   # local panel
   local layout=""
+  local option_text=${options[$buffer_idx]}
+  local current_focus=${inputs[$buffer_idx]}
   # if (( $focus != $blur )); then
   Layout
   Debug
@@ -193,8 +195,7 @@ Spin(){
       local form_count=${#forms[*]}
       local field_count=${field_counts[$panel_focus]}
       local buffer_idx=$(( ${form_idxs[$panel_focus]} + $form_focus ))
-      local option_text=${options[$buffer_idx]}
-      local current_focus=${inputs[$buffer_idx]}
+
       Control
       Render
       # Update
