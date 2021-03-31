@@ -61,7 +61,7 @@ Foreground(){
 Backward(){
   local point=$1
   if (( $point > 0 )); then
-    point=$(( point - 1 ))
+    point=$(( $point - 1 ))
   fi
   echo $point
 }
@@ -69,10 +69,16 @@ Backward(){
 Foreward(){
   local point=$1
   local limit=$(( $2 - 1 ))
-  if (( $point < $limit )); then
+  if (( point < limit )); then
     point=$(( point + 1 ))
   fi
   echo $point
+}
+
+Focus(){
+  local x=$1
+  local y=$2
+  echo "\e[$y;$x;H" 
 }
 
 Layout(){
@@ -93,18 +99,23 @@ Layout(){
 #     layout=${content[@]}
 #   fi
 #   layout="$bg\e[2J$panel$layout$fg$bg"
-  layout="\e[2J"
+  layout+="\e[2J"
 
 #   return 0
 }
 
+Debug(){
+  layout+="$(Focus 1 1)page: ${focus[0]}\nform: ${focus[1]}\nfield: ${focus[$current_form_idx]}"
+}
+
 Render(){
   # local panel
-  # local layout
+  local layout=""
   # if (( $focus != $blur )); then
-    Layout
+  Layout
+  Debug
   # fi
-  echo -en "$layout$buffer_idx$current_focus$option_text"
+  echo -en "$layout$current_focus$option_text"
 
   # if [[ ${handlers[$focus]} == 'FieldHandler' ]]; then
   #   echo -en "$layout${selection[$focus]}$(Mode set cursor)$string"
@@ -185,8 +196,8 @@ Spin(){
       local option_text=${options[$buffer_idx]}
       local current_focus=${inputs[$buffer_idx]}
       Control
-      # Update
       Render
+      # Update
     fi
   done
 
