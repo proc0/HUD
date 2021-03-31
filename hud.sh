@@ -105,30 +105,7 @@ Layout(){
 }
 
 Debug(){
-  layout+="$(Focus 1 1)page: ${focus[0]}\nform: ${focus[1]}\nfield: ${focus[$current_form_idx]}"
-}
-
-Render(){
-  # local panel
-  local layout=""
-  local option_text=${options[$buffer_idx]}
-  local current_focus=${inputs[$buffer_idx]}
-  # if (( $focus != $blur )); then
-  Layout
-  Debug
-  # fi
-  echo -en "$layout$current_focus$option_text"
-
-  # if [[ ${handlers[$focus]} == 'FieldHandler' ]]; then
-  #   echo -en "$layout${selection[$focus]}$(Mode set cursor)$string"
-  # elif [[ ${handlers[$focus]} == 'ButtonHandler' ]]; then
-  #   echo -e "$layout${selection[$focus]}"
-  #   eval ${handlers[$focus]} $focus $action
-  # elif (( $focus != $blur )); then
-    # echo -e "$layout"
-  # fi
-
-  return 0
+  layout+="$(Focus 1 1)pointer: $buffer_idx\nframe: ${focus[0]}\nform: ${focus[1]}\nfield: ${focus[$current_form_idx]}"
 }
 
 Listen(){
@@ -151,7 +128,15 @@ Listen(){
 }
 
 Control(){
-
+  local page_focus=${focus[0]}
+  local panel_focus=${focus[1]}
+  local current_form_idx=$(( $panel_focus + 2 ))
+  local form_focus=${focus[$current_form_idx]}
+  local form_count=${#forms[*]}
+  local field_count=${field_counts[$panel_focus]}
+  local buffer_idx=$(( ${form_idxs[$panel_focus]} + $form_focus ))
+  local option_text=${options[$buffer_idx]}
+  local current_focus=${inputs[$buffer_idx]}
   case $action in
     UP)
       case $page_focus in
@@ -172,6 +157,36 @@ Control(){
   esac
 }
 
+Render(){
+  # local panel
+  local layout=""
+  local page_focus=${focus[0]}
+  local panel_focus=${focus[1]}
+  local current_form_idx=$(( $panel_focus + 2 ))
+  local form_focus=${focus[$current_form_idx]}
+  local form_count=${#forms[*]}
+  local field_count=${field_counts[$panel_focus]}
+  local buffer_idx=$(( ${form_idxs[$panel_focus]} + $form_focus ))
+  local option_text=${options[$buffer_idx]}
+  local current_focus=${inputs[$buffer_idx]}
+  # if (( $focus != $blur )); then
+  Layout
+  Debug
+  # fi
+  echo -en "$layout$current_focus$option_text"
+
+  # if [[ ${handlers[$focus]} == 'FieldHandler' ]]; then
+  #   echo -en "$layout${selection[$focus]}$(Mode set cursor)$string"
+  # elif [[ ${handlers[$focus]} == 'ButtonHandler' ]]; then
+  #   echo -e "$layout${selection[$focus]}"
+  #   eval ${handlers[$focus]} $focus $action
+  # elif (( $focus != $blur )); then
+    # echo -e "$layout"
+  # fi
+
+  return 0
+}
+
 # Update(){
 #   case $action in
 #     -2) buffer="${input:2}";
@@ -188,13 +203,6 @@ Spin(){
   while [ : ]; do
     Listen
     if (( ${#input} > 0 )); then
-      local page_focus=${focus[0]}
-      local panel_focus=${focus[1]}
-      local current_form_idx=$(( $panel_focus + 2 ))
-      local form_focus=${focus[$current_form_idx]}
-      local form_count=${#forms[*]}
-      local field_count=${field_counts[$panel_focus]}
-      local buffer_idx=$(( ${form_idxs[$panel_focus]} + $form_focus ))
 
       Control
       Render
