@@ -76,37 +76,94 @@ Increase(){
 }
 
 Focus(){
-  # 2. y=$row
-  # 1. x=$column
+  # 1. x: column
+  # 2. y: row
   echo "\e[$2;$1;H" 
 }
 
-Draw(){
-#   if (( focus > -1 )); then
-#     for i in ${!content[@]}; do
-#       if [[ -n ${panels[$i]} ]]; then
-#         panel+="${panels[$i]}"
-#       fi
-#       if (( focus == i )); then
-#         output+=${focused[$i]}
+Text(){
+  # 1. column
+  # 2. row
+  # 3. text
+  # 4. color
+  echo "$(Font $4)$(Focus $1 $2)$3"
+}
 
-#       else
-#         output+=${content[$i]}
-#       fi
-#     done
-#   else
-#     panel+=${panels[@]}
-#     output=${content[@]}
-#   fi
-#   output="$bg\e[2J$panel$output$fg$bg"
+Box(){
+  # 1. column
+  # 2. row
+  # 3. width
+  # 4. height
+  # 5. fill
+  local box=$(Fill $5)
+  for y in $( seq 1 $4 ); do 
+    box+="$(Focus $1 $(( $2 + $y )))\e[$3;@"
+  done
+  echo $box
+}
+
+Label(){
+  # 1. column
+  # 2. row
+  # 3. width
+  # 4. text
+  # 5. color
+  # 6. fill
+  local start="$(Box $1 $2 1 1 $6)"
+  local text="$(Text $(( $1 + 1 )) $(($2 + 1)) $4 $5)"
+  local end="$(Box $(( $1 + ${#4} + 1 )) $2 $(( $3 - ${#4} - 1 )) 1 $6)"
+  echo "$start$text$end"
+}
+
+Field(){
+  # 1. column
+  # 2. row
+  # 3. width
+  # 4. text
+  # 5. color
+  # 6. fill
+  local label=$(Label $1 $2 $3 $4 $5 $6)
+  local start=$(Box $1 $(( $2 + 1 )) 1 1 $6)
+  local entry=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 $6)
+  local end=$(Box $(( $1 + $3 - 1 )) $(( $2 + 1 )) 1 1 $6)
+  echo "$label$start$entry$end"
+}
+
+Spawn(){
+  field_boxes+=($(Field 10 10 20 'test' 'white' 'cyan'))
+}
+
+Draw(){
   local fill=${theme['fill']}
-  output+="$fill\e[2J$fill"
+
+  output+="$fill\e[2J"
+  for i in ${!field_boxes[@]}; do
+    output+=${field_boxes[$i]}
+  done
+  output+="$fill"
 
   return 0
 }
 
 Debug(){
   output+="$(Focus 1 1)selected: $selected\nframe: ${focus[0]}\nform: ${focus[1]}\nfield: ${focus[$form_index]}\naction: $action"
+}
+
+Render(){
+  local frame=${focus[0]}
+  local panel_select=${focus[1]}
+  local form_index=$(( $panel_select + 2 ))
+  local form_select=${focus[$form_index]}
+  local form_count=${#forms[*]}
+  local field_count=${field_counts[$panel_select]}
+  local selected=$(( ${form_idxs[$panel_select]} + $form_select ))
+  local option_value=${option_values[$selected]}
+  local input_select=${inputs[$selected]}
+
+  Draw
+  Debug
+  echo -en "$output$input_select$option_value"
+  return 0
 }
 
 Listen(){
@@ -167,23 +224,6 @@ Control(){
   return 0
 }
 
-Render(){
-  local frame=${focus[0]}
-  local panel_select=${focus[1]}
-  local form_index=$(( $panel_select + 2 ))
-  local form_select=${focus[$form_index]}
-  local form_count=${#forms[*]}
-  local field_count=${field_counts[$panel_select]}
-  local selected=$(( ${form_idxs[$panel_select]} + $form_select ))
-  local option_value=${option_values[$selected]}
-  local input_select=${inputs[$selected]}
-
-  Draw
-  Debug
-  echo -en "$output$input_select$option_value"
-  return 0
-}
-
 Spin(){
   local input=""
   local output=""
@@ -228,10 +268,10 @@ Stop(){
 Hud(){
   declare -a -i focus=(0 0 0)
   declare -a -i form_idxs=(0)
-  declare -a -i field_counts=(3)
+  declare -a -i field_counts=(1)
   declare -a forms=(form1)
-  declare -a fields=(field1 field2 field3)
-  declare -a inputs=('\e[10;10;H' '\e[1;20;H' '\e[30;1;H')
+  declare -a fields=(field1)
+  declare -a inputs=('\e[12;11;H')
   declare -a option_values=()
 
   declare -A theme=( 
@@ -239,7 +279,9 @@ Hud(){
     [fill]=$(Fill $FILL_COLOR)
   )
 
-  # Spawn
+  declare -a field_boxes=()
+
+  Spawn
   Guard
   Core
   Stop
