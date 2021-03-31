@@ -5,12 +5,12 @@ ROWS=44
 COLS=88
 
 # PALETTE
-BG_COLOR=black
-FG_COLOR=white
-FORM_COLOR=blue
-FORM_FOCUS_COLOR=cyan
-FORM_FONT_COLOR=white
-FORM_FONT_FOCUS_COLOR=black
+FILL_COLOR=blue
+FONT_COLOR=white
+FORM_COLOR=cyan
+PANEL_COLOR=green
+SELECT_COLOR=brown
+FONT_SELECT_COLOR=black
 
 COLOR(){
   case $1 in
@@ -41,7 +41,7 @@ Mode(){
   local code=$2
   local mode
 
-  if [[ $toggle == '' || $toggle == 'set' ]]; then
+  if [[ $toggle == 'set' ]]; then
     mode=h
   elif [[ $toggle == 'reset' ]]; then
     mode=l
@@ -50,166 +50,151 @@ Mode(){
   echo "\e[?$(CODE $code)$mode" 
 }
 
-Background(){
+Fill(){
   echo "\e[4$(COLOR $1)m"
 }
 
-Foreground(){
+Font(){
   echo "\e[3$(COLOR $1)m"
 }
 
-Backward(){
+Decrease(){
   local point=$1
   if (( $point > 0 )); then
-    point=$(( point - 1 ))
+    point=$(( $point - 1 ))
   fi
   echo $point
 }
 
-Foreward(){
+Increase(){
   local point=$1
   local limit=$(( $2 - 1 ))
   if (( $point < $limit )); then
-    point=$(( point + 1 ))
+    point=$(( $point + 1 ))
   fi
   echo $point
 }
 
 Focus(){
-  local x=$1
-  local y=$2
-  echo "\e[$y;$x;H" 
+  # 2. y=$row
+  # 1. x=$column
+  echo "\e[$2;$1;H" 
 }
 
-Layout(){
+Draw(){
 #   if (( focus > -1 )); then
 #     for i in ${!content[@]}; do
 #       if [[ -n ${panels[$i]} ]]; then
 #         panel+="${panels[$i]}"
 #       fi
 #       if (( focus == i )); then
-#         layout+=${focused[$i]}
+#         output+=${focused[$i]}
 
 #       else
-#         layout+=${content[$i]}
+#         output+=${content[$i]}
 #       fi
 #     done
 #   else
 #     panel+=${panels[@]}
-#     layout=${content[@]}
+#     output=${content[@]}
 #   fi
-#   layout="$bg\e[2J$panel$layout$fg$bg"
-  layout+="\e[2J"
-
-#   return 0
-}
-
-Debug(){
-  layout+="$(Focus 1 1)pointer: $buffer_idx\nframe: ${focus[0]}\nform: ${focus[1]}\nfield: ${focus[$current_form_idx]}"
-}
-
-Listen(){
-  local command
-  read -n1 -r input
-  case "$input" in
-    $'\e') 
-      read -n2 -r -t.001 command
-      case $command in
-        [A) action=UP ;;
-        [B) action=DN ;;
-        [C) action=RT ;;
-        [D) action=LT ;;
-         *) action=QU ;;
-      esac ;;
-    $'\0d') action=EN ;;
-    $'\t') action=TB ;;
-    *) action=IN ;;
-  esac
-}
-
-Control(){
-  local page_focus=${focus[0]}
-  local panel_focus=${focus[1]}
-  local current_form_idx=$(( $panel_focus + 2 ))
-  local form_focus=${focus[$current_form_idx]}
-  local form_count=${#forms[*]}
-  local field_count=${field_counts[$panel_focus]}
-  local buffer_idx=$(( ${form_idxs[$panel_focus]} + $form_focus ))
-  local option_text=${options[$buffer_idx]}
-  local current_focus=${inputs[$buffer_idx]}
-  case $action in
-    UP)
-      case $page_focus in
-        0) focus[1]=$(Backward $panel_focus) ;;
-        1) focus[$current_form_idx]=$(Backward $form_focus) ;;
-      esac ;;
-    DN)
-      case $page_focus in
-        0) focus[1]=$(Foreward $panel_focus $form_count ) ;;
-        1) focus[$current_form_idx]=$(Foreward $form_focus $field_count) ;;
-      esac ;;    
-    # LT) focus[0]=$(Backward $page_focus) ;;
-    # RT) focus[0]=$(Foreward $page_focus 2) ;;
-    TB) (( $page_focus == 0 )) && focus[0]=1 || focus[0]=0 ;;
-    IN) (( $page_focus == 1 )) && options[$buffer_idx]="$option_text$input" ;;
-    EN) options[$buffer_idx]="" ;;
-    QU) Stop ;;
-  esac
-}
-
-Render(){
-  # local panel
-  local layout=""
-  local page_focus=${focus[0]}
-  local panel_focus=${focus[1]}
-  local current_form_idx=$(( $panel_focus + 2 ))
-  local form_focus=${focus[$current_form_idx]}
-  local form_count=${#forms[*]}
-  local field_count=${field_counts[$panel_focus]}
-  local buffer_idx=$(( ${form_idxs[$panel_focus]} + $form_focus ))
-  local option_text=${options[$buffer_idx]}
-  local current_focus=${inputs[$buffer_idx]}
-  # if (( $focus != $blur )); then
-  Layout
-  Debug
-  # fi
-  echo -en "$layout$current_focus$option_text"
-
-  # if [[ ${handlers[$focus]} == 'FieldHandler' ]]; then
-  #   echo -en "$layout${selection[$focus]}$(Mode set cursor)$string"
-  # elif [[ ${handlers[$focus]} == 'ButtonHandler' ]]; then
-  #   echo -e "$layout${selection[$focus]}"
-  #   eval ${handlers[$focus]} $focus $action
-  # elif (( $focus != $blur )); then
-    # echo -e "$layout"
-  # fi
+#   output="$bg\e[2J$panel$output$fg$bg"
+  local fill=${theme['fill']}
+  output+="$fill\e[2J$fill"
 
   return 0
 }
 
-# Update(){
-#   case $action in
-#     -2) buffer="${input:2}";
-#         string+="$buffer" ;;
-#     -3) string="" ;;
-#     -9) break ;;
-#      *) blur=$focus; focus=$action ;;
-#   esac
-# }
+Debug(){
+  output+="$(Focus 1 1)selected: $selected\nframe: ${focus[0]}\nform: ${focus[1]}\nfield: ${focus[$form_index]}\naction: $action"
+}
+
+Listen(){
+  local intent
+  local opcode
+
+  read -n1 -r input
+  case "$input" in
+    $'\e') 
+      read -n2 -r -t.001 opcode
+      case $opcode in
+        [A) intent=UP ;;
+        [B) intent=DN ;;
+        [C) intent=RT ;;
+        [D) intent=LT ;;
+        *) return 1 ;;
+      esac ;;
+    $'\0d') intent=EN ;;
+    $'\t') intent=TB ;;
+    *) intent=IN ;;
+  esac
+
+  if [[ -n $intent ]]; then
+    action=$intent
+    change=0
+  fi
+  return 0
+}
+
+Control(){
+  local frame=${focus[0]}
+  local panel_select=${focus[1]}
+  local form_index=$(( $panel_select + 2 ))
+  local form_select=${focus[$form_index]}
+  local form_count=${#forms[*]}
+  local field_count=${field_counts[$panel_select]}
+  local selected=$(( ${form_idxs[$panel_select]} + $form_select ))
+  local option_value=${option_values[$selected]}
+  local input_select=${inputs[$selected]}
+
+  case $action in
+    EN) option_values[$selected]="" ;;
+    UP)
+      case $frame in
+        0) focus[1]=$(Decrease $panel_select) ;;
+        1) focus[$form_index]=$(Decrease $form_select) ;;
+      esac ;;
+    DN)
+      case $frame in
+        0) focus[1]=$(Increase $panel_select $form_count ) ;;
+        1) focus[$form_index]=$(Increase $form_select $field_count) ;;
+      esac ;;
+    TB) (( $frame == 0 )) && focus[0]=1 || focus[0]=0 ;;
+    IN) (( $frame == 1 )) && option_values[$selected]="$option_value$input" ;;
+  esac
+
+  change=1
+  return 0
+}
+
+Render(){
+  local frame=${focus[0]}
+  local panel_select=${focus[1]}
+  local form_index=$(( $panel_select + 2 ))
+  local form_select=${focus[$form_index]}
+  local form_count=${#forms[*]}
+  local field_count=${field_counts[$panel_select]}
+  local selected=$(( ${form_idxs[$panel_select]} + $form_select ))
+  local option_value=${option_values[$selected]}
+  local input_select=${inputs[$selected]}
+
+  Draw
+  Debug
+  echo -en "$output$input_select$option_value"
+  return 0
+}
+
 Spin(){
   local input=""
+  local output=""
   local action=''
-
-  while [ : ]; do
-    Listen
-    if (( ${#input} > 0 )); then
-
+  local change=1
+  while Listen; do
+    if (( $change == 0 )); then
       Control
       Render
-      # Update
     fi
   done
-
   return 0
 }
 
@@ -229,21 +214,15 @@ Guard(){
   fi
 }
 
+Core(){
+  Render
+  Spin
+}
+
 Stop(){
   Guard
   clear
   exit 0
-}
-
-Core(){
-  # delcare -A theme=( 
-  #   [fg]=$(Foreground $FG_COLOR)
-  #   [bg]=$(Background $BG_COLOR)
-  # )
-  #   sleep 10
-
-  Render
-  Spin
 }
 
 Hud(){
@@ -253,7 +232,12 @@ Hud(){
   declare -a forms=(form1)
   declare -a fields=(field1 field2 field3)
   declare -a inputs=('\e[10;10;H' '\e[1;20;H' '\e[30;1;H')
-  declare -a options=()
+  declare -a option_values=()
+
+  declare -A theme=( 
+    [font]=$(Font $FONT_COLOR)
+    [fill]=$(Fill $FILL_COLOR)
+  )
 
   # Spawn
   Guard
