@@ -232,10 +232,7 @@ Listen(){
     *) intent=IN ;;
   esac
 
-  if [[ -n $intent ]]; then
-    action=$intent
-    change=0
-  fi
+  action=$intent
   return 0
 }
 
@@ -248,26 +245,33 @@ Control(){
   local field_count=${field_counts[$panel_select]}
   local selected=$(( ${form_idxs[$panel_select]} + $form_select ))
   local option_value=${option_values[$selected]}
-  local input_select=${inputs[$selected]}
 
   case $action in
-    EN) option_values[$selected]="" ;;
+    EN) 
+      option_values[$selected]="";
+      return 0 ;;
     UP)
       case $frame in
         0) focus[1]=$(Decrease $panel_select) ;;
         1) focus[$form_index]=$(Decrease $form_select) ;;
-      esac ;;
+      esac
+      return 0 ;;
     DN)
       case $frame in
         0) focus[1]=$(Increase $panel_select $form_count ) ;;
         1) focus[$form_index]=$(Increase $form_select $field_count) ;;
-      esac ;;
-    TB) (( $frame == 0 )) && focus[0]=1 || focus[0]=0 ;;
-    IN) (( $frame == 1 )) && option_values[$selected]="$option_value$input" ;;
+      esac
+      return 0 ;;
+    TB) 
+      (( $frame == 0 )) && focus[0]=1 || focus[0]=0;
+      return 0 ;;
+    IN)
+      (( $frame == 1 )) && option_values[$selected]="$option_value$input";
+      return 0 ;;
+    *) return 1
   esac
 
-  change=1
-  return 0
+  return 1
 }
 
 # -----------------
@@ -276,14 +280,10 @@ Control(){
 
 Spin(){
   local input=""
-  local output=""
   local action=''
-  local change=1
+  local output=""
   while Listen; do
-    if (( $change == 0 )); then
-      Control
-      Render
-    fi
+    Control && Render
   done
   return 0
 }
