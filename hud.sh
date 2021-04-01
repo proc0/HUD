@@ -162,28 +162,20 @@ Field(){
   fields+=("$label$start$field$end$cap")
 }
 
-Column(){
-  local kind=$1
-  # row = x + field h
-  local row=5
-  local col=$(( $x + $w + 10 ))
-  for i in ${!members[@]}; do
-    row=$(( $i*3 + 5 ))
-    case $kind in
-      nav) Button $col $row $w ${members[$i]} $FORM_FONT_COLOR $FORM_COLOR ;;
-      form) Field $col $row $w ${members[$i]} $FORM_FONT_COLOR $FORM_COLOR ;;
-    esac
-    inputs+=($(Focus $(( $col + 1 )) $(( $row + 2 )) ))
-  done
-}
-
 Form(){
   local id=$1
   declare -a members=($2)
   
   forms+=($id)
   navigation+=($(Label $x $y $w $id $PANEL_FONT_COLOR $PANEL_COLOR ))
-  Column 'form'
+  # row = x + field h
+  local row=5
+  local col=$(( $x + $w + 10 ))
+  for i in ${!members[@]}; do
+    row=$(( $i*3 + 5 ))
+    Field $col $row $w ${members[$i]} $FORM_FONT_COLOR $FORM_COLOR 
+    inputs+=($(Focus $(( $col + 1 )) $(( $row + 2 )) ))
+  done
   field_counts+=(${#members[*]})
   form_idxs+=(0)
 }
