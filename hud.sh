@@ -159,20 +159,30 @@ Field(){
   echo "\e[1m$label\e[0m$start$field$end$cap"
 }
 
+Header(){
+  local form_name=$(Label $1 $2 $3 $4 $5 $6)
+  local padding=$(Box $1 $(( $2 + 1 )) $3 2 $6)
+  echo "$form_name$padding"
+
+}
+
 # Construction
 # ------------
 
 Form(){
   local id=$1
   declare -a members=($2)
-  
-  forms+=($id)
-  navigation+=($(Label $x $y $w $id $PANEL_FONT_COLOR $PANEL_COLOR ))
-  
   local field_height=3
+  local header_height=3
   local row
   local first_col=$(( $x + $w + 10 ))
   local first_row=$(( $y + $field_height ))
+  
+  forms+=($id)
+  navigation+=($(Label $x $y $w $id $PANEL_FONT_COLOR $PANEL_COLOR ))
+  navigation_select+=($(Label $x $y $w $id $FONT_SELECT_COLOR $SELECT_COLOR))
+
+  headers+=($(Header $first_col $y $w $id $FORM_FONT_COLOR $FORM_COLOR))
   for i in ${!members[@]}; do
     row=$(( $i*$field_height + $first_row ))
     fields+=($(Field $first_col $row $w ${members[$i]} $FORM_FONT_COLOR $FORM_COLOR))
@@ -180,7 +190,11 @@ Form(){
     inputs+=($(Focus $(( $first_col + 1 )) $(( $row + 2 )) ))
   done
   field_counts+=(${#members[*]})
-  form_idxs+=(0)
+  local idx=0
+  for fc in ${!field_counts[@]}; do
+    idx=$(( $idx + ${field_counts[$fc]} ))
+  done
+  form_idxs+=($(( $idx - ${#members[*]} )))
 }
 
 Start(){
@@ -189,6 +203,7 @@ Start(){
   local w=25
 
   Form myForm 'field1 field2 field3'
+  # Form my2Form 'field21 field22 field23'
 }
 
 # Destructure
@@ -197,9 +212,17 @@ Start(){
 Draw(){
   local fill=${colors['fill']}
 
-  output+="\e[2J${navigation[@]}"
+  output+="\e[2J"
+  for n in ${!navigation[@]}; do
+    if (( $panel_select == $n )); then
+      output+="${navigation_select[$n]}"
+    else
+      output+="${navigation[$n]}"
+    fi
+  done
+  output+="${headers[$panel_select]}"
   for i in ${!fields[@]}; do
-    if (( $selected == $i )); then
+    if (( $frame == 1 && $selected == $i )); then
       output+="${fields_select[$i]}${inputs[$i]}$fill${option_values[$i]}"
     else
       output+="${fields[$i]}${inputs[$i]}$fill${option_values[$i]}"
@@ -332,6 +355,8 @@ Core(){
   )
   # Layout
   declare -a navigation=()
+  declare -a navigation_select=()
+  declare -a headers=()
   declare -a fields=()
   declare -a fields_select=()
 
