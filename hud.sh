@@ -159,7 +159,7 @@ Field(){
   local field=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 $FILL_COLOR)
   local end=$(Box $(( $1 + $3 - 1 )) $(( $2 + 1 )) 1 1 $6)
   local cap=$(Box $1 $(( $2 + 2 )) $3 1 $6)
-  fields+=("$label$start$field$end$cap")
+  fields+=("\e[1m$label\e[0m$start$field$end$cap")
 }
 
 Form(){
