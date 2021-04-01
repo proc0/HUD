@@ -14,9 +14,8 @@ PANEL_FONT_COLOR=white
 SELECT_COLOR=brown
 FONT_SELECT_COLOR=black
 
-# --------------
-# Terminal Codes
-# --------------
+# Codification
+# ------------
 
 COLOR(){
   case $1 in
@@ -42,7 +41,6 @@ CODE(){
   esac
 }
 
-# --------------
 # Infrastructure
 # --------------
 
@@ -109,9 +107,8 @@ Focus(){
   echo "\e[$2;$1;H" 
 }
 
-# ------------
-# Constructure
-# ------------
+# Decomposition
+# -------------
 
 Text(){
   # 1. column
@@ -162,6 +159,9 @@ Field(){
   echo "\e[1m$label\e[0m$start$field$end$cap"
 }
 
+# Construction
+# ------------
+
 Form(){
   local id=$1
   declare -a members=($2)
@@ -183,7 +183,7 @@ Form(){
   form_idxs+=(0)
 }
 
-Spawn(){
+Start(){
   local x=2
   local y=2
   local w=25
@@ -191,7 +191,6 @@ Spawn(){
   Form myForm 'field1 field2 field3'
 }
 
-# -----------
 # Destructure
 # -----------
 
@@ -233,7 +232,6 @@ Render(){
   return 0
 }
 
-# ------------
 # Interaction
 # ------------
 
@@ -299,9 +297,8 @@ Control(){
   return 1
 }
 
-# -----------------
-#       Main
-# -----------------
+# Composition
+# -----------
 
 Spin(){
   local input=""
@@ -313,18 +310,13 @@ Spin(){
   return 0
 }
 
-Core(){
-  Render
-  Spin
-}
-
 Stop(){
   Guard
   clear
   exit 0
 }
 
-Hud(){
+Core(){
   declare -a forms=()
   # Info
   declare -a -i form_idxs=()
@@ -343,10 +335,17 @@ Hud(){
   declare -a fields=()
   declare -a fields_select=()
 
-  Spawn
+  Start
   Guard
-  Core
+  Render
+  Spin
   Stop
+}
+
+# ----
+
+Hud(){
+  Core
 }
 
 Hud
