@@ -5,10 +5,12 @@
 # --------
 
 # COLORS
-FILL_COLOR=blue
+FILL_COLOR=black
 FONT_COLOR=white
-FORM_COLOR=cyan
-PANEL_COLOR=green
+FORM_COLOR=green
+FORM_FONT_COLOR=white
+PANEL_COLOR=blue
+PANEL_FONT_COLOR=white
 SELECT_COLOR=brown
 FONT_SELECT_COLOR=black
 
@@ -79,7 +81,7 @@ Fill(){
 }
 
 Font(){
-  echo "\e[3$(COLOR $1)m"
+  echo "\e[9$(COLOR $1)m"
 }
 
 Decrease(){
@@ -154,46 +156,43 @@ Field(){
   # 6. fill
   local label=$(Label $1 $2 $3 $4 $5 $6)
   local start=$(Box $1 $(( $2 + 1 )) 1 1 $6)
-  local field=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 $6)
+  local field=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 $FILL_COLOR)
   local end=$(Box $(( $1 + $3 - 1 )) $(( $2 + 1 )) 1 1 $6)
-  fields+=("$label$start$field$end")
+  local cap=$(Box $1 $(( $2 + 2 )) $3 1 $6)
+  fields+=("$label$start$field$end$cap")
 }
 
 Column(){
   local kind=$1
-  # declare -a column
-  local row=4
+  # row = x + field h
+  local row=5
   local col=$(( $x + $w + 10 ))
   for i in ${!members[@]}; do
-    row=$(( $i*2 + 4 ))
+    row=$(( $i*3 + 5 ))
     case $kind in
-      nav) Button $col $row $w ${members[$i]} $c $f ;;
-      form) Field $col $row $w ${members[$i]} $c $f ;;
+      nav) Button $col $row $w ${members[$i]} $FORM_FONT_COLOR $FORM_COLOR ;;
+      form) Field $col $row $w ${members[$i]} $FORM_FONT_COLOR $FORM_COLOR ;;
     esac
     inputs+=($(Focus $(( $col + 1 )) $(( $row + 2 )) ))
   done
 }
 
 Form(){
-  local x=2
-  local y=2
-  local w=25
-  local c=$FONT  
-  local f=$FILL
   local id=$1
   declare -a members=($2)
   
   forms+=($id)
-  navigation+=($(Label $x $y $w $id $c $f ))
+  navigation+=($(Label $x $y $w $id $PANEL_FONT_COLOR $PANEL_COLOR ))
   Column 'form'
   field_counts+=(${#members[*]})
   form_idxs+=(0)
-  # form_panel+=($(Field 10 10 20 'test' 'white' 'cyan'))
-  # fields+=($(Column field "$fields"))
-
 }
 
 Spawn(){
+  local x=2
+  local y=2
+  local w=25
+
   Form myForm 'field1 field2 field3'
 }
 
@@ -218,6 +217,7 @@ Debug(){
 }
 
 Render(){
+  local font_color=${colors['font']}
   local frame=${focus[0]}
   local panel_select=${focus[1]}
   local form_index=$(( $panel_select + 2 ))
@@ -230,7 +230,7 @@ Render(){
 
   Draw
   # Debug
-  echo -en "$output$input_select$option_value"
+  echo -en "$output$input_select$font_color$option_value"
   return 0
 }
 
