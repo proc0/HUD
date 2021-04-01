@@ -156,10 +156,10 @@ Field(){
   # 6. fill
   local label=$(Label $1 $2 $3 $4 $5 $6)
   local start=$(Box $1 $(( $2 + 1 )) 1 1 $6)
-  local field=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 $FILL_COLOR)
+  local field=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 0)
   local end=$(Box $(( $1 + $3 - 1 )) $(( $2 + 1 )) 1 1 $6)
   local cap=$(Box $1 $(( $2 + 2 )) $3 1 $6)
-  fields+=("\e[1m$label\e[0m$start$field$end$cap")
+  echo "\e[1m$label\e[0m$start$field$end$cap"
 }
 
 Form(){
@@ -168,13 +168,16 @@ Form(){
   
   forms+=($id)
   navigation+=($(Label $x $y $w $id $PANEL_FONT_COLOR $PANEL_COLOR ))
-  # row = x + field h
-  local row=5
-  local col=$(( $x + $w + 10 ))
+  
+  local field_height=3
+  local row
+  local first_col=$(( $x + $w + 10 ))
+  local first_row=$(( $y + $field_height ))
   for i in ${!members[@]}; do
-    row=$(( $i*3 + 5 ))
-    Field $col $row $w ${members[$i]} $FORM_FONT_COLOR $FORM_COLOR 
-    inputs+=($(Focus $(( $col + 1 )) $(( $row + 2 )) ))
+    row=$(( $i*$field_height + $first_row ))
+    fields+=($(Field $first_col $row $w ${members[$i]} $FORM_FONT_COLOR $FORM_COLOR))
+    fields_select+=($(Field $first_col $row $w ${members[$i]} $FONT_SELECT_COLOR $SELECT_COLOR))
+    inputs+=($(Focus $(( $first_col + 1 )) $(( $row + 2 )) ))
   done
   field_counts+=(${#members[*]})
   form_idxs+=(0)
@@ -195,9 +198,13 @@ Spawn(){
 Draw(){
   local fill=${colors['fill']}
 
-  output+="$fill\e[2J${navigation[@]}"
+  output+="\e[2J${navigation[@]}"
   for i in ${!fields[@]}; do
-    output+=${fields[$i]}
+    if (( $selected == $i )); then
+      output+="${fields_select[$i]}${inputs[$i]}$fill${option_values[$i]}"
+    else
+      output+="${fields[$i]}${inputs[$i]}$fill${option_values[$i]}"
+    fi
   done
   output+="$fill"
 
@@ -334,6 +341,7 @@ Hud(){
   # Layout
   declare -a navigation=()
   declare -a fields=()
+  declare -a fields_select=()
 
   Spawn
   Guard
