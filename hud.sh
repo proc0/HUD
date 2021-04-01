@@ -156,19 +156,45 @@ Field(){
   local start=$(Box $1 $(( $2 + 1 )) 1 1 $6)
   local field=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 $6)
   local end=$(Box $(( $1 + $3 - 1 )) $(( $2 + 1 )) 1 1 $6)
-  echo "$label$start$field$end"
+  fields+=("$label$start$field$end")
 }
 
-# List(){
+Column(){
+  local kind=$1
+  # declare -a column
+  local row=4
+  local col=$(( $x + $w + 10 ))
+  for i in ${!members[@]}; do
+    row=$(( $i*2 + 4 ))
+    case $kind in
+      nav) Button $col $row $w ${members[$i]} $c $f ;;
+      form) Field $col $row $w ${members[$i]} $c $f ;;
+    esac
+    inputs+=($(Focus $(( $col + 1 )) $(( $row + 2 )) ))
+  done
+}
 
-# }
+Form(){
+  local x=2
+  local y=2
+  local w=25
+  local c=$FONT  
+  local f=$FILL
+  local id=$1
+  declare -a members=($2)
+  
+  forms+=($id)
+  navigation+=($(Label $x $y $w $id $c $f ))
+  Column 'form'
+  field_counts+=(${#members[*]})
+  form_idxs+=(0)
+  # form_panel+=($(Field 10 10 20 'test' 'white' 'cyan'))
+  # fields+=($(Column field "$fields"))
 
-# Form(){
-
-# }
+}
 
 Spawn(){
-  field_boxes+=($(Field 10 10 20 'test' 'white' 'cyan'))
+  Form myForm 'field1 field2 field3'
 }
 
 # -----------
@@ -178,9 +204,9 @@ Spawn(){
 Draw(){
   local fill=${colors['fill']}
 
-  output+="$fill\e[2J"
-  for i in ${!field_boxes[@]}; do
-    output+=${field_boxes[$i]}
+  output+="$fill\e[2J${navigation[@]}"
+  for i in ${!fields[@]}; do
+    output+=${fields[$i]}
   done
   output+="$fill"
 
@@ -203,7 +229,7 @@ Render(){
   local input_select=${inputs[$selected]}
 
   Draw
-  Debug
+  # Debug
   echo -en "$output$input_select$option_value"
   return 0
 }
@@ -300,12 +326,11 @@ Stop(){
 }
 
 Hud(){
+  declare -a forms=()
   # Info
-  declare -a forms=(form1)
-  declare -a -i form_idxs=(0)
-  declare -a fields=(field1)
-  declare -a -i field_counts=(1)
-  declare -a inputs=('\e[12;11;H')
+  declare -a -i form_idxs=()
+  declare -a -i field_counts=()
+  declare -a inputs=()
   # State
   declare -a -i focus=(0 0 0)
   declare -a option_values=()
@@ -315,7 +340,8 @@ Hud(){
     [fill]=$(Fill $FILL_COLOR)
   )
   # Layout
-  declare -a field_boxes=()
+  declare -a navigation=()
+  declare -a fields=()
 
   Spawn
   Guard
