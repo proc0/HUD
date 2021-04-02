@@ -1,4 +1,6 @@
-#!/bin/env bash
+#!/usr/bin/env bash
+#!/bin/bash
+#!/usr/local/Cellar/bash/5.1.4/bin/bash
 
 # --------
 # Settings
@@ -11,8 +13,8 @@ FORM_COLOR=green
 FORM_FONT_COLOR=white
 PANEL_COLOR=blue
 PANEL_FONT_COLOR=white
-SELECT_COLOR=brown
-FONT_SELECT_COLOR=black
+SELECT_COLOR=blue
+FONT_SELECT_COLOR=white
 
 # Codification
 # ------------
@@ -210,7 +212,7 @@ Start(){
 # -----------
 
 Draw(){
-  local fill=${colors['fill']}
+  local fill=${colors["fill"]}
 
   output+="\e[2J"
   for n in ${!navigation[@]}; do
@@ -238,7 +240,7 @@ Debug(){
 }
 
 Render(){
-  local font_color=${colors['font']}
+  local font_color=${colors["font"]}
   local frame=${focus[0]}
   local panel_select=${focus[1]}
   local form_index=$(( $panel_select + 2 ))
@@ -328,7 +330,9 @@ Spin(){
   local action=''
   local output=""
   while Listen; do
-    Control && Render
+    if Control; then
+      Render
+    fi
   done
   return 0
 }
@@ -349,9 +353,9 @@ Core(){
   declare -a -i focus=(0 0 0)
   declare -a option_values=()
   # Output
-  declare -A colors=( 
-    [font]=$(Font $FONT_COLOR)
-    [fill]=$(Fill $FILL_COLOR)
+  declare -a colors=( 
+    ['font']=$(Font $FONT_COLOR)
+    ['fill']=$(Fill $FILL_COLOR)
   )
   # Layout
   declare -a navigation=()
