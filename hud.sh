@@ -117,7 +117,7 @@ Text(){
   # 2. row
   # 3. text
   # 4. color
-  echo "$(Font $4)$(Focus $1 $2)$3"
+  echo "$(Focus $1 $2)$(Font $4)$3"
 }
 
 Box(){
@@ -126,9 +126,10 @@ Box(){
   # 3. width
   # 4. height
   # 5. fill
-  local box=$(Fill $5)
-  for y in $( seq 1 $4 ); do 
-    box+="$(Focus $1 $(( $2 + $y )))\e[$3;@"
+  local row=1
+  local box="$(Focus $1 $2)$(Fill $5)"
+  for row in $( seq 1 $4 ); do 
+    box+="$(Focus $1 $(( $2 + $row )))\e[$3;@"
   done
   echo $box
 }
