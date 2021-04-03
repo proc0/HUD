@@ -282,11 +282,11 @@ Render(){
   local form_index=$(( $panel_select + 2 ))
   local form_select=${focus[$form_index]}
   local form_count=${#navigation[*]}
-  local form_start=${form_idxs[$panel_select]}
   local field_count=${field_counts[$panel_select]}
+  local form_start=${form_idxs[$panel_select]}
   local selected=$(( $form_start + $form_select ))
   local option_value=${option_values[$selected]}
-
+  
   Draw
   Debug
   echo -en "$font_color$option_value"
@@ -327,7 +327,8 @@ Control(){
   local form_select=${focus[$form_index]}
   local form_count=${#navigation[*]}
   local field_count=${field_counts[$panel_select]}
-  local selected=$(( ${form_idxs[$panel_select]} + $form_select ))
+  local form_start=${form_idxs[$panel_select]}
+  local selected=$(( $form_start + $form_select ))
   local option_value=${option_values[$selected]}
 
   case $action in
