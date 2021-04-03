@@ -181,7 +181,6 @@ Form(){
   local first_row=$(( $y + $field_height ))
 
   headers+=($(Header $first_col $y $w $id $FORM_FONT_COLOR $FORM_COLOR))
-  headers_focus+=($(Focus $first_col $first_row ))
   local r_i
   for r_i in ${!arg_fields[@]}; do
     local row=$(( $r_i*$field_height + $first_row ))
@@ -246,7 +245,6 @@ Draw(){
   local fill=${colors["fill"]}
 
   local output="\e[2J"
-  local form_start=${form_idxs[$panel_select]}
   local form_end=$(( $field_count - $form_select - 1 ))
   local form_top=$(( $selected + 1 ))
 
@@ -260,15 +258,21 @@ Draw(){
     output+="${fields_select[$selected]}$fill"
     output+="${fields[@]:$form_top:$form_end}$fill${option_values[@]:$form_top:$form_end}"
   else 
-    local f_idx=${form_idxs[$panel_select]}
-    output+="${fields[@]:$f_idx:$field_count}$fill${option_values[@]:$f_idx:$field_count}"
+    output+="${fields[@]:$form_start:$field_count}$fill${option_values[@]:$form_start:$field_count}"
   fi
 
   echo -e $output
 }
 
 Debug(){
-  echo -e "$(Focus 1 15)selected: $selected\nframe: ${focus[0]}\nform: ${focus[1]}\nfield: ${focus[$form_index]}\naction: $action\nform_count: $form_count\nform_indices: ${form_idxs[@]}"
+  echo -e "$(Focus 1 15)\n\
+    selected: $selected\n\
+    frame: $frame\n\
+    form: $panel_select\n\
+    field: $form_select\n\
+    action: $action\n\
+    form_count: $form_count\n\
+    form_indices: ${form_idxs[@]}"
 }
 
 Render(){
@@ -278,10 +282,10 @@ Render(){
   local form_index=$(( $panel_select + 2 ))
   local form_select=${focus[$form_index]}
   local form_count=${#navigation[*]}
+  local form_start=${form_idxs[$panel_select]}
   local field_count=${field_counts[$panel_select]}
-  local selected=$(( ${form_idxs[$panel_select]} + $form_select ))
+  local selected=$(( $form_start + $form_select ))
   local option_value=${option_values[$selected]}
-  # local input_select=${inputs[$selected]}
 
   Draw
   Debug
@@ -376,14 +380,13 @@ Stop(){
 }
 
 Core(){
-  # declare -a forms=()
-  # Info
+  # Metadata
   declare -a -i form_idxs=()
   declare -a -i field_counts=()
-  # declare -a inputs=()
   # State
   declare -a -i focus=(0 0)
   declare -a option_values=()
+
   # Output references
   declare -a colors=( 
     ['font']=$(Font $FONT_COLOR)
@@ -391,7 +394,6 @@ Core(){
   )
   # Layout
   declare -a headers=()
-  declare -a headers_focus=()
   declare -a fields=()
   declare -a navigation=()
   declare -a fields_select=()
