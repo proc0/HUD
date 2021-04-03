@@ -263,7 +263,7 @@ Start(){
       current_field_count=$(( $current_field_count + 1 ))
     fi
   done
-  echo -e "$(Resize 44 88)"
+  echo -e "$(Resize 44 88)\e%G\e]50;Cascadia Mono\a"
 }
 
 # Destructure
