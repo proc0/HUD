@@ -63,6 +63,33 @@ Guard(){
   fi
 }
 
+Resize(){
+  local win_h=$1
+  local win_w=$2
+  local win_code
+
+  if [[ -n $win_h && -n $win_w ]]; then
+    win_code="\e[8;$win_h;$win_w;t\e[1;$win_h;r"
+    echo $win_code
+  else
+    local pos
+    printf "\e[13t" > /dev/tty
+    IFS=';' read -r -d t -a pos
+
+    local xpos=${pos[1]}
+    local ypos=${pos[2]}
+
+    printf "\e[14;2t" > /dev/tty
+    IFS=';' read -r -d t -a size
+
+    local hsize=${size[1]}
+    local wsize=${size[2]}
+
+    win_code="\e[8;$hsize;$wsize;t\e[1;$win_h;r"
+    echo $win_code
+  fi
+}
+
 Mode(){
   local toggle=$1
   local code=$2
@@ -236,6 +263,7 @@ Start(){
       current_field_count=$(( $current_field_count + 1 ))
     fi
   done
+  echo -e "$(Resize 44 88)"
 }
 
 # Destructure
@@ -266,12 +294,14 @@ Draw(){
 
 Debug(){
   echo -e "$(Focus 1 15)\n\
-    selected: $selected\n\
+    action: $action\n\
     frame: $frame\n\
     form: $panel_select\n\
     field: $form_select\n\
-    action: $action\n\
     form_count: $form_count\n\
+    field_count: $field_count\n\
+    form_start: $form_start\n\
+    selected: $selected\n\
     form_indices: ${form_idxs[@]}"
 }
 
@@ -285,7 +315,7 @@ Render(){
   local form_start=${form_idxs[$panel_select]}
   local selected=$(( $form_start + $form_select ))
   local option_value=${option_values[$selected]}
-  
+
   Draw
   Debug
   echo -en "${colors["font"]}$option_value"
@@ -294,30 +324,6 @@ Render(){
 
 # Interaction
 # ------------
-
-Listen(){
-  local intent
-  local opcode
-
-  read -n1 -r input
-  case "$input" in
-    $'\e') 
-      read -n2 -r -t.001 opcode
-      case $opcode in
-        [A) intent=UP ;;
-        [B) intent=DN ;;
-        [C) intent=RT ;;
-        [D) intent=LT ;;
-        *) return 1 ;;
-      esac ;;
-    $'\0d') intent=EN ;;
-    $'\t') intent=TB ;;
-    *) intent=IN ;;
-  esac
-
-  action=$intent
-  return 0
-}
 
 Control(){
   local frame=${focus[0]}
@@ -356,6 +362,30 @@ Control(){
   esac
 
   return 1
+}
+
+Listen(){
+  local intent
+  local opcode
+
+  read -n1 -r input
+  case "$input" in
+    $'\e') 
+      read -n2 -r -t.001 opcode
+      case $opcode in
+        [A) intent=UP ;;
+        [B) intent=DN ;;
+        [C) intent=RT ;;
+        [D) intent=LT ;;
+        *) return 1 ;;
+      esac ;;
+    $'\0d') intent=EN ;;
+    $'\t') intent=TB ;;
+    *) intent=IN ;;
+  esac
+
+  action=$intent
+  return 0
 }
 
 # Composition
