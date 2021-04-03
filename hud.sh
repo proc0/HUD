@@ -276,7 +276,6 @@ Debug(){
 }
 
 Render(){
-  local font_color=${colors["font"]}
   local frame=${focus[0]}
   local panel_select=${focus[1]}
   local form_index=$(( $panel_select + 2 ))
@@ -289,7 +288,7 @@ Render(){
   
   Draw
   Debug
-  echo -en "$font_color$option_value"
+  echo -en "${colors["font"]}$option_value"
   return 0
 }
 
