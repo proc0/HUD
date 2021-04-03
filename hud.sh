@@ -16,6 +16,7 @@ PANEL_FONT_COLOR=white
 SELECT_COLOR=blue
 FONT_SELECT_COLOR=white
 
+SAMPLE_INPUT="--form1 (text1 text2 text3) --form2 (blah4 blah5 blah6)"
 # Codification
 # ------------
 
@@ -126,10 +127,10 @@ Box(){
   # 3. width
   # 4. height
   # 5. fill
-  local row=1
+  local sect=1
   local box="$(Focus $1 $2)$(Fill $5)"
-  for row in $( seq 1 $4 ); do 
-    box+="$(Focus $1 $(( $2 + $row )))\e[$3;@"
+  for sect in $( seq 1 $4 ); do 
+    box+="$(Focus $1 $(( $2 + $sect )))\e[$3;@"
   done
   echo $box
 }
@@ -159,7 +160,7 @@ Field(){
   local field=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 0)
   local end=$(Box $(( $1 + $3 - 1 )) $(( $2 + 1 )) 1 1 $6)
   local cap=$(Box $1 $(( $2 + 2 )) $3 1 $6)
-  echo "\e[1m$label\e[0m$start$field$end$cap"
+  echo "$label$start$field$end$cap"
 }
 
 Header(){
@@ -174,30 +175,21 @@ Header(){
 
 Form(){
   local id=$1
-  declare -a members=($2)
   local field_height=3
   local header_height=3
-  local row
   local first_col=$(( $x + $w + 10 ))
   local first_row=$(( $y + $field_height ))
-  
-  forms+=($id)
-  navigation+=($(Label $x $y $w $id $PANEL_FONT_COLOR $PANEL_COLOR ))
-  navigation_select+=($(Label $x $y $w $id $FONT_SELECT_COLOR $SELECT_COLOR))
 
   headers+=($(Header $first_col $y $w $id $FORM_FONT_COLOR $FORM_COLOR))
-  for i in ${!members[@]}; do
-    row=$(( $i*$field_height + $first_row ))
-    fields+=($(Field $first_col $row $w ${members[$i]} $FORM_FONT_COLOR $FORM_COLOR))
-    fields_select+=($(Field $first_col $row $w ${members[$i]} $FONT_SELECT_COLOR $SELECT_COLOR))
-    inputs+=($(Focus $(( $first_col + 1 )) $(( $row + 2 )) ))
+  headers_focus+=($(Focus $first_col $first_row ))
+  local r_i
+  for r_i in ${!arg_fields[@]}; do
+    local row=$(( $r_i*$field_height + $first_row ))
+    fields+=($(Field $first_col $row $w ${arg_fields[$r_i]} $FORM_FONT_COLOR $FORM_COLOR))
+    fields_select+=($(Field $first_col $row $w ${arg_fields[$r_i]} $FONT_SELECT_COLOR $SELECT_COLOR))
+    option_values+=($(Focus $(( $first_col + 1 )) $(( $row + 2 )) ))
   done
-  field_counts+=(${#members[*]})
-  local idx=0
-  for fc in ${!field_counts[@]}; do
-    idx=$(( $idx + ${field_counts[$fc]} ))
-  done
-  form_idxs+=($(( $idx - ${#members[*]} )))
+
 }
 
 Start(){
@@ -205,8 +197,46 @@ Start(){
   local y=2
   local w=25
 
-  Form myForm 'field1 field2 field3'
-  # Form my2Form 'field21 field22 field23'
+  declare -a input_args=($SAMPLE_INPUT)
+
+  declare -a args
+  declare -a arg_fields
+  local current_field_count
+  local form_name=''
+  local i_i
+  for i_i in ${!input_args[@]}; do
+    if [[ ${input_args[$i_i]:0:2} == '--' ]]; then
+      form_name=${input_args[$i_i]:2}
+      focus+=(0)
+      navigation+=($(Label $x $(( $i_i + $y )) $w $form_name $PANEL_FONT_COLOR $PANEL_COLOR ))
+      navigation_select+=($(Label $x $(( $i_i + $y )) $w $form_name $FONT_SELECT_COLOR $SELECT_COLOR))
+    elif [[ ${input_args[$i_i]:0:1} == "(" ]]; then
+      current_field_count=1
+      arg_fields=(${input_args[$i_i]})
+    elif [[ ${input_args[$i_i]: -1} == ")" ]]; then
+      arg_fields+=(${input_args[$i_i]})
+      current_field_count=$(( $current_field_count + 1 ))
+      field_counts+=($current_field_count)
+
+      if (( ${#field_counts[*]} > 1 )); then
+        local form_idx=0
+        local count_i
+        for count_i in $(( ${#field_counts[*]} - 1 )); do
+          form_idx=$(( $form_idx + ${field_counts[$count_i]} ))
+        done
+        form_idxs+=($form_idx)
+      else
+        form_idxs+=(0)
+      fi
+
+      Form $form_name
+      arg_fields=()
+      current_field_count=0
+    else
+      arg_fields+=(${input_args[$i_i]})
+      current_field_count=$(( $current_field_count + 1 ))
+    fi
+  done
 }
 
 # Destructure
@@ -215,29 +245,30 @@ Start(){
 Draw(){
   local fill=${colors["fill"]}
 
-  output+="\e[2J"
-  for n in ${!navigation[@]}; do
-    if (( $panel_select == $n )); then
-      output+="${navigation_select[$n]}"
-    else
-      output+="${navigation[$n]}"
-    fi
-  done
-  output+="${headers[$panel_select]}"
-  for i in ${!fields[@]}; do
-    if (( $frame == 1 && $selected == $i )); then
-      output+="${fields_select[$i]}${inputs[$i]}$fill${option_values[$i]}"
-    else
-      output+="${fields[$i]}${inputs[$i]}$fill${option_values[$i]}"
-    fi
-  done
-  output+="$fill"
+  local output="\e[2J"
+  local form_start=${form_idxs[$panel_select]}
+  local form_end=$(( $field_count - $form_select - 1 ))
+  local form_top=$(( $selected + 1 ))
 
-  return 0
+  output+="${navigation_select[$panel_select]}"
+  output+="${headers[$panel_select]}"
+
+  if (( $frame == 1 )); then
+    if (( $form_select > 0 )); then
+      output+="${fields[@]:$form_start:$form_select}$fill${option_values[@]:$form_start:$form_select}"      
+    fi
+    output+="${fields_select[$selected]}$fill"
+    output+="${fields[@]:$form_top:$form_end}$fill${option_values[@]:$form_top:$form_end}"
+  else 
+    local f_idx=${form_idxs[$panel_select]}
+    output+="${fields[@]:$f_idx:$field_count}$fill${option_values[@]:$f_idx:$field_count}"
+  fi
+
+  echo -e $output
 }
 
 Debug(){
-  output+="$(Focus 1 1)selected: $selected\nframe: ${focus[0]}\nform: ${focus[1]}\nfield: ${focus[$form_index]}\naction: $action"
+  echo -e "$(Focus 1 15)selected: $selected\nframe: ${focus[0]}\nform: ${focus[1]}\nfield: ${focus[$form_index]}\naction: $action\nform_count: $form_count\nform_indices: ${form_idxs[@]}"
 }
 
 Render(){
@@ -246,15 +277,15 @@ Render(){
   local panel_select=${focus[1]}
   local form_index=$(( $panel_select + 2 ))
   local form_select=${focus[$form_index]}
-  local form_count=${#forms[*]}
+  local form_count=${#navigation[*]}
   local field_count=${field_counts[$panel_select]}
   local selected=$(( ${form_idxs[$panel_select]} + $form_select ))
   local option_value=${option_values[$selected]}
-  local input_select=${inputs[$selected]}
+  # local input_select=${inputs[$selected]}
 
   Draw
-  # Debug
-  echo -en "$output$input_select$font_color$option_value"
+  Debug
+  echo -en "$font_color$option_value"
   return 0
 }
 
@@ -290,7 +321,7 @@ Control(){
   local panel_select=${focus[1]}
   local form_index=$(( $panel_select + 2 ))
   local form_select=${focus[$form_index]}
-  local form_count=${#forms[*]}
+  local form_count=${#navigation[*]}
   local field_count=${field_counts[$panel_select]}
   local selected=$(( ${form_idxs[$panel_select]} + $form_select ))
   local option_value=${option_values[$selected]}
@@ -345,25 +376,26 @@ Stop(){
 }
 
 Core(){
-  declare -a forms=()
+  # declare -a forms=()
   # Info
   declare -a -i form_idxs=()
   declare -a -i field_counts=()
-  declare -a inputs=()
+  # declare -a inputs=()
   # State
-  declare -a -i focus=(0 0 0)
+  declare -a -i focus=(0 0)
   declare -a option_values=()
-  # Output
+  # Output references
   declare -a colors=( 
     ['font']=$(Font $FONT_COLOR)
     ['fill']=$(Fill $FILL_COLOR)
   )
   # Layout
-  declare -a navigation=()
-  declare -a navigation_select=()
   declare -a headers=()
+  declare -a headers_focus=()
   declare -a fields=()
+  declare -a navigation=()
   declare -a fields_select=()
+  declare -a navigation_select=()
 
   Start
   Guard
