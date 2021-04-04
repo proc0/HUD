@@ -11,12 +11,12 @@ FILL_COLOR=black
 FONT_COLOR=white
 FORM_COLOR=green
 FORM_FONT_COLOR=white
-PANEL_COLOR=blue
+PANEL_COLOR=brown
 PANEL_FONT_COLOR=white
 SELECT_COLOR=blue
 FONT_SELECT_COLOR=white
 
-SAMPLE_INPUT="--form1 (text1 text2 text3) --form2 (blah4 blah5 blah6)"
+SAMPLE_INPUT="--form1 {text1 text2 text3} --form2 {blah4 blah5 blah6}"
 # Codification
 # ------------
 
@@ -236,11 +236,11 @@ Start(){
       focus+=(0)
       navigation+=($(Label $x $(( $i_i + $y )) $w $form_name $PANEL_FONT_COLOR $PANEL_COLOR ))
       navigation_select+=($(Label $x $(( $i_i + $y )) $w $form_name $FONT_SELECT_COLOR $SELECT_COLOR))
-    elif [[ ${input_args[$i_i]:0:1} == "(" ]]; then
+    elif [[ ${input_args[$i_i]:0:1} == "{" ]]; then
       current_field_count=1
-      arg_fields=(${input_args[$i_i]})
-    elif [[ ${input_args[$i_i]: -1} == ")" ]]; then
-      arg_fields+=(${input_args[$i_i]})
+      arg_fields=(${input_args[$i_i]:1})
+    elif [[ ${input_args[$i_i]: -1} == "}" ]]; then
+      arg_fields+=(${input_args[$i_i]:0: -1})
       current_field_count=$(( $current_field_count + 1 ))
       field_counts+=($current_field_count)
 
@@ -275,8 +275,13 @@ Draw(){
   local output="\e[2J"
   local form_end=$(( $field_count - $form_select - 1 ))
   local form_top=$(( $selected + 1 ))
+  local nav_end=$(( $form_count - $panel_select - 1 ))
+  local nav_top=$(( $panel_select + 1 ))
 
+  output+="${navigation[@]:0:$panel_select}"
   output+="${navigation_select[$panel_select]}"
+  output+="${navigation[@]:$nav_top:$nav_end}"
+
   output+="${headers[$panel_select]}"
 
   if (( $frame == 1 )); then
