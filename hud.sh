@@ -225,7 +225,6 @@ Spawn(){
 
   declare -a input_args=($SAMPLE_INPUT)
 
-  declare -a args
   declare -a arg_fields
   local current_field_count
   local form_name=''
