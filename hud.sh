@@ -218,7 +218,7 @@ Form(){
 
 }
 
-Start(){
+Spawn(){
   local x=2
   local y=2
   local w=25
@@ -232,10 +232,11 @@ Start(){
   local i_i
   for i_i in ${!input_args[@]}; do
     if [[ ${input_args[$i_i]:0:2} == '--' ]]; then
+      local nav_row=$(( ${#focus[*]} + $y - 2 ))
       form_name=${input_args[$i_i]:2}
       focus+=(0)
-      navigation+=($(Label $x $(( $i_i + $y )) $w $form_name $PANEL_FONT_COLOR $PANEL_COLOR ))
-      navigation_select+=($(Label $x $(( $i_i + $y )) $w $form_name $FONT_SELECT_COLOR $SELECT_COLOR))
+      navigation+=($(Label $x $nav_row $w $form_name $PANEL_FONT_COLOR $PANEL_COLOR ))
+      navigation_select+=($(Label $x $nav_row $w $form_name $FONT_SELECT_COLOR $SELECT_COLOR))
     elif [[ ${input_args[$i_i]:0:1} == "{" ]]; then
       current_field_count=1
       arg_fields=(${input_args[$i_i]:1})
@@ -263,7 +264,6 @@ Start(){
       current_field_count=$(( $current_field_count + 1 ))
     fi
   done
-  echo -e "$(Resize 44 88)\e%G\e]50;Cascadia Mono\a"
 }
 
 # Destructure
@@ -396,6 +396,12 @@ Listen(){
 # Composition
 # -----------
 
+Start(){
+  Guard
+  Render
+  echo -e "$(Resize 44 88)\e%G\e]50;Cascadia Mono\a"
+}
+
 Spin(){
   local input=""
   local action=''
@@ -434,9 +440,8 @@ Core(){
   declare -a fields_select=()
   declare -a navigation_select=()
 
+  Spawn
   Start
-  Guard
-  Render
   Spin
   Stop
 }
