@@ -194,7 +194,10 @@ Header(){
   local form_name=$(Label $1 $2 $3 $4 $5 $6)
   local padding=$(Box $1 $(( $2 + 1 )) $3 2 $6)
   echo "$form_name$padding"
+}
 
+Button(){
+  echo $(Label $1 $2 $3 $4 $5 $6)
 }
 
 # Construction
@@ -209,12 +212,16 @@ Form(){
 
   headers+=($(Header $first_col $y $w $id $FORM_FONT_COLOR $FORM_COLOR))
   local r_i
+  local row
   for r_i in ${!arg_fields[@]}; do
-    local row=$(( $r_i*$field_height + $first_row ))
+    row=$(( $r_i*$field_height + $first_row ))
     fields+=($(Field $first_col $row $w ${arg_fields[$r_i]} $FORM_FONT_COLOR $FORM_COLOR))
     fields_select+=($(Field $first_col $row $w ${arg_fields[$r_i]} $FONT_SELECT_COLOR $SELECT_COLOR))
     option_values+=($(Focus $(( $first_col + 1 )) $(( $row + 2 )) ))
   done
+  fields+=($(Button $first_col $(( $row + 3 )) $w $id $FORM_FONT_COLOR $FORM_COLOR))
+  fields_select+=($(Button $first_col $(( $row + 3 )) $w $id $FONT_SELECT_COLOR $SELECT_COLOR))
+  option_values+=($(Focus $first_col $(( $row + 3 )) ))
 
 }
 
@@ -241,7 +248,7 @@ Spawn(){
       arg_fields=(${input_args[$i_i]:1})
     elif [[ ${input_args[$i_i]: -1} == "}" ]]; then
       arg_fields+=(${input_args[$i_i]:0: -1})
-      current_field_count=$(( $current_field_count + 1 ))
+      current_field_count=$(( $current_field_count + 2 ))
       field_counts+=($current_field_count)
 
       if (( ${#field_counts[*]} > 1 )); then
@@ -276,19 +283,24 @@ Draw(){
   local form_top=$(( $selected + 1 ))
   local nav_end=$(( $form_count - $panel_select - 1 ))
   local nav_top=$(( $panel_select + 1 ))
+  local opt_end=$(( $form_end - 1 ))
 
   output+="${navigation[@]:0:$panel_select}"
   output+="${navigation_select[$panel_select]}"
   output+="${navigation[@]:$nav_top:$nav_end}"
 
   output+="${headers[$panel_select]}"
-
   if (( $frame == 1 )); then
     if (( $form_select > 0 )); then
       output+="${fields[@]:$form_start:$form_select}$fill${option_values[@]:$form_start:$form_select}"      
     fi
     output+="${fields_select[$selected]}$fill"
-    output+="${fields[@]:$form_top:$form_end}$fill${option_values[@]:$form_top:$form_end}"
+
+    if (( $opt_end > 0 )); then
+      output+="${fields[@]:$form_top:$form_end}$fill${option_values[@]:$form_top:$opt_end}"
+    else
+      output+="${fields[@]:$form_top:$form_end}$fill"
+    fi
   else 
     output+="${fields[@]:$form_start:$field_count}$fill${option_values[@]:$form_start:$field_count}"
   fi
@@ -322,7 +334,14 @@ Render(){
 
   Draw
   Debug
-  echo -en "${colors["font"]}$option_value"
+  if (( $form_select == $field_count - 1 )); then
+    echo -e "$option_value"
+    case $action in
+      EN) echo hi ;;
+    esac
+  else
+    echo -en "${colors["font"]}$option_value"
+  fi
   return 0
 }
 
@@ -360,7 +379,7 @@ Control(){
       (( $frame == 0 )) && focus[0]=1 || focus[0]=0;
       return 0 ;;
     IN)
-      (( $frame == 1 )) && option_values[$selected]="$option_value$input";
+      (( $frame == 1 && $form_select < $field_count - 1 )) && option_values[$selected]="$option_value$input";
       return 0 ;;
     *) return 1
   esac
@@ -434,6 +453,7 @@ Core(){
   )
   # Layout
   declare -a headers=()
+  declare -a buttons=()
   declare -a fields=()
   declare -a navigation=()
   declare -a fields_select=()
