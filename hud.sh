@@ -17,6 +17,7 @@ SELECT_COLOR=blue
 FONT_SELECT_COLOR=white
 
 SAMPLE_INPUT="--form1 {text1 text2 text3} --form2 {blah4 blah5 blah6}"
+# SAMPLE_INPUT="load --command={git add -A . && git commit -m (default option) && git push} --command={echo charles}"
 # Codification
 # ------------
 
@@ -60,6 +61,8 @@ Guard(){
     OTTY=
   else
     OTTY=$(stty -g)
+    stty sane min 0 time 0
+    # ssty erase ^?
   fi
 }
 
@@ -375,6 +378,11 @@ Control(){
         1) focus[$form_index]=$(Increase $form_select $field_count) ;;
       esac
       return 0 ;;
+    BS) 
+      local opt_len=${#option_value}
+      local opt_end=$(( $opt_len - 1 ))
+      (( $frame == 1 && $opt_len > 0 )) && option_values[$selected]="${option_values[$selected]:0:$opt_end}";
+      return 0 ;;
     TB) 
       (( $frame == 0 )) && focus[0]=1 || focus[0]=0;
       return 0 ;;
@@ -404,6 +412,7 @@ Listen(){
       esac ;;
     $'\0d') intent=EN ;;
     $'\t') intent=TB ;;
+    $'\177') intent=BS ;;
     *) intent=IN ;;
   esac
 
