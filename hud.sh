@@ -16,8 +16,9 @@ PANEL_FONT_COLOR=white
 SELECT_COLOR=blue
 FONT_SELECT_COLOR=white
 
-SAMPLE_INPUT="--form1 {text1 text2 text3} --form2 {blah4 blah5 blah6}"
-# SAMPLE_INPUT="load --command={git add -A . && git commit -m (default option) && git push} --command={echo charles}"
+# SAMPLE_INPUT="--form1 {text1 text2 text3} --form2 {blah4 blah5 blah6}"
+SAMPLE_INPUT='load --commit="git add -A . && git commit -m {message: default option, option 1} && git push" --echo="echo charles {hi,bye}"'
+ERROR_INPUT='load asoa soaisi'
 # Codification
 # ------------
 
@@ -47,6 +48,112 @@ CODE(){
 
 # Infrastructure
 # --------------
+Usage(){
+  echo -e "hahaha"
+}
+
+ParseFields(){
+  local term=$1
+  # case ${term:0:1} in
+  #   '(') ;;
+  #   ')') ;;
+  #   *) form_commands[$current_form]+=($term) ;;
+  # esac
+}
+
+Parse(){
+  local token="$1"
+  local len=$(( ${#token} - 1))
+  local ti=0
+  local processing=1
+  local processing_flag=1
+  local form_command=""
+  local last_command=''
+  local curr_command=''
+  declare -a curr_fields=()
+  local last_field=''
+  for ti in $(seq 0 $len); do
+    local t="${token:$ti:1}"
+    case "$t" in
+      '{') 
+          if (( ${#curr_command} > 0 )); then
+            form_args+=("$last_command"); 
+            curr_command=''
+            last_command=''
+          fi
+          
+          processing=0;;
+
+      '}') processing=1;;
+      *)  
+        if (( $processing == 1 )); then
+          local next=$(( $ti + 1 ))
+          case "$t" in
+            '-') form_command+="$t"; processing_flag=0 ;;
+            ' ') form_command+="$t"; processing_flag=1; [[ "${token:$next:1}" == '{' ]] && last_command=$curr_command || curr_command='';;
+            *) form_command+="$t"; (( $processing_flag == 0 )) && curr_command+="$t" ;;
+          esac
+        else
+
+          case "$t" in
+            ';') (( ${#last_field} > 0 )) && curr_fields+=($last_field); last_field='' ;;
+            *) last_field+="$t" ;;
+          esac
+        fi ;;
+    esac
+  done 
+
+  if (( ${#curr_fields[@]} > 0 && ${#form_idxs[@]} > 0 )); then
+    local idx=0
+    local count_i
+    for count_i in ${!form_idxs[@]}; do
+      form_idx=$(( $idx + ${form_idxs[$count_i]} ))
+    done
+    field_counts+=(${#curr_fields[@]})
+    form_defaults+=(${curr_fields[@]})
+    form_idxs+=($idx)
+  elif (( ${#curr_fields[@]} > 0 )); then
+    field_counts+=(${#curr_fields[@]})
+    form_defaults+=(${curr_fields[@]})
+    form_idxs+=(0)
+  else
+    field_counts+=(0)
+    form_idxs+=(-1)
+  fi
+  curr_fields=()
+  form_commands+=("$form_command")
+  return 0
+}
+
+ParseForm(){
+  local token="$1"
+  case ${token:0:2} in
+    '--')
+      local name=${token%%=*}
+      form_names+=(${name:2})
+      Parse "${token##*=}" 
+      return 0 ;;
+    *) return 1 ;;
+  esac
+  return 2
+}
+
+Initialize(){
+  local comm=$1
+  case $comm in 
+    help) Usage && Stop ;;
+    load)
+      local ret=2
+      while (( $# > 1 )); do
+        shift
+        ParseForm "$1";
+        ret=$?
+      done
+      return $ret ;;
+    clear) return 0 ;;
+  esac
+  return 2
+}
 
 Guard(){
   if [[ -n $OFS ]]; then
@@ -238,6 +345,7 @@ Spawn(){
   declare -a arg_fields
   local current_field_count
   local form_name=''
+  local full_command=''
   local i_i
   for i_i in ${!input_args[@]}; do
     if [[ ${input_args[$i_i]:0:2} == '--' ]]; then
@@ -247,6 +355,8 @@ Spawn(){
       navigation+=($(Label $x $nav_row $w $form_name $PANEL_FONT_COLOR $PANEL_COLOR ))
       navigation_select+=($(Label $x $nav_row $w $form_name $FONT_SELECT_COLOR $SELECT_COLOR))
     elif [[ ${input_args[$i_i]:0:1} == "{" ]]; then
+
+
       current_field_count=1
       arg_fields=(${input_args[$i_i]:1})
     elif [[ ${input_args[$i_i]: -1} == "}" ]]; then
@@ -321,7 +431,12 @@ Debug(){
     field_count: $field_count\n\
     form_start: $form_start\n\
     selected: $selected\n\
-    form_indices: ${form_idxs[@]}"
+    form_indices: ${form_idxs[@]}\n\
+    form_names: ${form_names[@]}\n\
+    form_field_counts: ${field_counts[@]}\n\
+    form_commands: ${form_commands[@]}\n\
+    form_defaults: ${form_defaults[@]}\n\
+    form_args: ${form_args[@]}"
 }
 
 Render(){
@@ -335,16 +450,16 @@ Render(){
   local selected=$(( $form_start + $form_select ))
   local option_value=${option_values[$selected]}
 
-  Draw
+  # Draw
   Debug
-  if (( $form_select == $field_count - 1 )); then
-    echo -e "$option_value"
-    case $action in
-      EN) echo hi ;;
-    esac
-  else
-    echo -en "${colors["font"]}$option_value"
-  fi
+  # if (( $form_select == $field_count - 1 )); then
+  #   echo -e "$option_value"
+  #   case $action in
+  #     EN) echo hi ;;
+  #   esac
+  # else
+  #   echo -en "${colors["font"]}$option_value"
+  # fi
   return 0
 }
 
@@ -448,9 +563,7 @@ Stop(){
 }
 
 Core(){
-  # Metadata
-  declare -a -i form_idxs=()
-  declare -a -i field_counts=()
+
   # State
   declare -a -i focus=(0 0)
   declare -a option_values=()
@@ -477,7 +590,19 @@ Core(){
 # ----
 
 Hud(){
-  Core
+
+  declare -a form_names=()
+  declare -a form_args=()
+  declare -a form_defaults=()
+  declare -a form_commands=()
+  # Metadata
+  declare -a -i form_idxs=()
+  declare -a -i field_counts=()
+
+  Initialize "$@" && Debug
+  sleep 10
+  # Core
 }
 
-Hud
+Hud load --commit="git add -A . && git commit -m {message: default option; option 1} && git push" --echo="echo charles {hi;bye}"
+ 
