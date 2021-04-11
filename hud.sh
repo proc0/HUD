@@ -481,16 +481,15 @@ Listen(){
 # -----------
 
 Start(){
-  Guard
-  echo -e "$(Resize 44 88)\e%G\e]50;Cascadia Mono\a"
+  Render
+  echo -e "$(Resize 44 88)\e%G\e]50;Cascadia Mono\a$output"
 }
 
 Spin(){
   local input=""
   local action=''
   local output=""
-  Render
-  echo -e "$output"
+  Start
   while Listen; do
     if Control; then
       Render
@@ -519,13 +518,11 @@ Core(){
   declare -a navigation=()
   declare -a headers=()
   declare -a fields=()
-  declare -a buttons=()
   declare -a fields_select=()
-  declare -a buttons_select=()
   declare -a navigation_select=()
 
   Spawn
-  Start
+  Guard
   Spin
   Stop
 }
