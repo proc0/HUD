@@ -287,7 +287,7 @@ Field(){
 }
 
 Header(){
-  local form_name=$(Label $1 $2 $3 $4 $5 $6)
+  local form_name=$(Label $1 $2 $3 "$4" $5 $6)
   local padding=$(Box $1 $(( $2 + 1 )) $3 2 $6)
   echo "$form_name$padding"
 }
@@ -297,40 +297,38 @@ Header(){
 
 Form(){
   local field_height=3
-  local form_x=$(( $x + $w + 10 ))
+  local left_padding=10
+  local form_x=$(( $x + $width + $left_padding ))
 
-  headers+=($(Header $form_x $y $w "$1" $FORM_FONT_COLOR $FORM_COLOR))
-  local row_index=0
-  local row=$(( $field_height + $y ))
+  headers+=($(Header $form_x $y $width "$1" $FORM_FONT_COLOR $FORM_COLOR))
+  local field_y=$(( $field_height + $y ))
   local field_index=$first_index
   for field_index in $( seq $first_index $form_field_count ); do
     local row_index=$(( $row_index + 1 ))
-    if (( $row_index == 0 )); then
-      row=$(( $field_height + $y ))
-    else
-      row=$(( $row_index*$field_height + $y ))
+    if (( $row_index > 0 )); then
+      field_y=$(( $row_index*$field_height + $y ))
     fi
-    fields+=($(Field $form_x $row $w "${form_fields[$field_index]}" $FORM_FONT_COLOR $FORM_COLOR))
-    fields_select+=($(Field $form_x $row $w "${form_fields[$field_index]}" $FONT_SELECT_COLOR $SELECT_COLOR))
-    option_values+=($(Focus $(( $form_x + 1 )) $(( $row + 2 )) ))
+    fields+=($(Field $form_x $field_y $width "${form_fields[$field_index]}" $FORM_FONT_COLOR $FORM_COLOR))
+    fields_select+=($(Field $form_x $field_y $width "${form_fields[$field_index]}" $FONT_SELECT_COLOR $SELECT_COLOR))
+    option_values+=($(Focus $(( $form_x + 1 )) $(( $field_y + 2 )) ))
   done
 }
 
 Spawn(){
   local x=2
   local y=2
-  local w=25
+  local width=25
 
-  local n
-  for n in ${!form_names[@]}; do
-    local form_name=${form_names[$n]}
-    local nav_row=$(( ${#focus[*]} + $y - 2 ))
-    local first_index=${field_starts[$n]}
-    local form_field_count=$(( $first_index + ${field_counts[$n]} - 1 ))
+  local name_index
+  for name_index in ${!form_names[@]}; do
+    local form_name=${form_names[$name_index]}
+    local navigation_y=$(( ${#focus[*]} + $y - 2 ))
+    local first_index=${field_starts[$name_index]}
+    local form_field_count=$(( $first_index + ${field_counts[$name_index]} - 1 ))
     focus+=(0)
-    navigation+=($(Label $x $nav_row $w $form_name $PANEL_FONT_COLOR $PANEL_COLOR ))
-    navigation_select+=($(Label $x $nav_row $w $form_name $FONT_SELECT_COLOR $SELECT_COLOR))
-    Form $form_name
+    navigation+=($(Label $x $navigation_y $width "$form_name" $PANEL_FONT_COLOR $PANEL_COLOR ))
+    navigation_select+=($(Label $x $navigation_y $width "$form_name" $FONT_SELECT_COLOR $SELECT_COLOR))
+    Form "$form_name"
   done
 }
 
@@ -390,7 +388,7 @@ Render(){
   local field_count=${field_counts[$form_select]}
   local field_start=${field_starts[$form_select]}
   local selected=$(( $field_start + $field_select ))
-  local option_value=${option_values[$selected]}
+  local option_value="${option_values[$selected]}"
 
   Draw
   (( $debug == 0 )) && Debug
@@ -415,7 +413,7 @@ Control(){
   local field_count=${field_counts[$form_select]}
   local field_start=${field_starts[$form_select]}
   local selected=$(( $field_start + $field_select ))
-  local option_value=${option_values[$selected]}
+  local option_value="${option_values[$selected]}"
 
   case $action in
     EN) 
