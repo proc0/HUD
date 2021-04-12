@@ -58,20 +58,20 @@ ParseField(){
     '(') field_flag=0; 
         these_fields=() ;;
     ')') field_flag=1;
-        this_command+="$this_command {field${#form_fields[*]}} ";
+        this_command+="{field${#form_fields[*]}}";
         this_field_count=$(( $this_field_count + 1 ));
         form_fields+=("field${#form_fields[*]}");
         form_values+=("$this_field");
         this_field='' ;;
     *) if (( $field_flag == 0 )); then
-          case "$t" in
+          case "$1" in
             ',') these_fields+=("$this_field"); 
                 form_values+=("$this_field");
                 this_field='' ;;
-            *) this_field+="$this_command$t" ;;
+            *) this_field+="$1" ;;
           esac
         else
-          this_command+="$t"
+          this_command+="$1"
         fi ;;
   esac
   return 0
