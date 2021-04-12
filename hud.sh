@@ -55,20 +55,18 @@ Usage(){
 
 ParseField(){
   case "$1" in
-    '(') field_flag=0; 
-        these_fields=() ;;
+    '(') field_flag=0 ;;
     ')') field_flag=1;
         this_command+="{field${#form_fields[*]}}";
         this_field_count=$(( $this_field_count + 1 ));
         form_fields+=("field${#form_fields[*]}");
-        form_values+=("$this_field");
-        this_field='' ;;
+        user_values+=("$user_value");
+        user_value='' ;;
     *) if (( $field_flag == 0 )); then
           case "$1" in
-            ',') these_fields+=("$this_field"); 
-                form_values+=("$this_field");
-                this_field='' ;;
-            *) this_field+="$1" ;;
+            ',') user_values+=("$user_value");
+                user_value='' ;;
+            *) user_value+="$1" ;;
           esac
         else
           this_command+="$1"
@@ -83,10 +81,9 @@ ParseForm(){
   local field_flag=1
   local this_command=""
   local last_command=''
-  local this_field=''
+  local user_value=''
   local last_field=''
   local this_field_count=0
-  declare -a these_fields=()
 
   local string_index=0
   for string_index in $(seq 0 $form_string_length); do
@@ -337,14 +334,15 @@ Spawn(){
 
 Debug(){
   if [[ $1 == 0 ]]; then
-    output+="$(Focus 1 15)\n\
+    echo -e "$(Focus 1 15)\n\
       form_indices: ${field_starts[@]}\n\
       form_names: ${form_names[@]}\n\
       form_field_counts: ${field_counts[@]}\n\
       form_commands: ${form_commands[@]}\n\
-      form_values: ${form_values[@]}\n\
-      form_fields: ${form_fields[@]}\n";
-    sleep 35 && exit 0;
+      form_fields: ${form_fields[@]}\n\
+      user_values: ${user_values[@]}\n";
+    sleep 35;
+    exit 0;
   else
     output+="$(Focus 1 15)\n\
       action: $action\n\
@@ -355,7 +353,7 @@ Debug(){
       form_command: ${form_commands[$form_select]}\n\
       field_count: $field_count\n\
       field_start: $field_start\n\
-      selected: $selected\n"
+      selected: $selected\n";
   fi
   return 0
 }
@@ -530,7 +528,7 @@ Hud(){
   declare -a form_names=()
   declare -a form_commands=()
   declare -a form_fields=()
-  declare -a form_values=()
+  declare -a user_values=()
   # Metadata
   declare -a -i field_starts=()
   declare -a -i field_counts=()
