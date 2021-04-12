@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-#!/bin/bash
 #!/usr/local/Cellar/bash/5.1.4/bin/bash
+#!/bin/bash
 
 # --------
 # Settings
@@ -16,8 +16,9 @@ PANEL_FONT_COLOR=white
 SELECT_COLOR=blue
 FONT_SELECT_COLOR=white
 
-SAMPLE_INPUT="--form1 {text1 text2 text3} --form2 {blah4 blah5 blah6}"
-# SAMPLE_INPUT="load --command={git add -A . && git commit -m (default option) && git push} --command={echo charles}"
+SAMPLE_INPUT='load --commit="git add -A . && git commit -m (message: default option, option 1, {echo blah}) && git push (origin) (blah)" --echo="echo charles (hi,bye) && echo (haha,hihi)"'
+ERROR_INPUT='load asoa soaisi'
+
 # Codification
 # ------------
 
@@ -47,6 +48,96 @@ CODE(){
 
 # Infrastructure
 # --------------
+Usage(){
+  echo -e "hahaha"
+  return 0
+}
+
+ParseField(){
+  case "$1" in
+    '(') field_flag=0 ;;
+    ')') field_flag=1;
+        this_command+="{field${#form_fields[*]}}";
+        this_field_count=$(( $this_field_count + 1 ));
+        form_fields+=("field${#form_fields[*]}");
+        user_values+=("$user_value");
+        user_value='' ;;
+    *) if (( $field_flag == 0 )); then
+          case "$1" in
+            ',') user_values+=("$user_value");
+                user_value='' ;;
+            *) user_value+="$1" ;;
+          esac
+        else
+          this_command+="$1"
+        fi ;;
+  esac
+  return 0
+}
+
+ParseForm(){
+  local form_string="$1"
+  local form_string_length=$(( ${#form_string} - 1 ))
+  local field_flag=1
+  local this_command=""
+  local last_command=''
+  local user_value=''
+  local last_field=''
+  local this_field_count=0
+
+  local string_index=0
+  for string_index in $(seq 0 $form_string_length); do
+    ParseField "${form_string:$string_index:1}"
+  done
+
+  if (( ${#field_starts[*]} > 0 )); then
+    local form_idx=0
+    local count_i
+    for count_i in ${!field_starts[@]}; do
+      form_idx=$(( $form_idx + ${field_starts[$count_i]} ))
+    done
+    field_starts+=($(( $form_idx + $this_field_count + 1 )))
+  else
+    field_starts+=(0)
+  fi
+  field_counts+=($this_field_count)
+  form_commands+=("$this_command")
+  return 0
+}
+
+Parse(){
+  local token="$1"
+  case ${token:0:2} in
+    '--')
+      local name="${token%%=*}"
+      form_names+=("${name:2}")
+      ParseForm "${token##*=}" 
+      return 0 ;;
+    '-'*) 
+      case "${token:1}" in
+        d) debug=0; return 0 ;;
+        *) return 2 ;;
+      esac ;;
+    *) return 1 ;;
+  esac
+  return 2
+}
+
+Initialize(){
+  case $1 in 
+    load)
+      local status=2
+      while (( $# > 1 )); do
+        shift
+        Parse "$1";
+        status=$?
+      done
+      return $status ;;
+    clear) return 0 ;;
+    help|*) Usage && Stop ;;
+  esac
+  return 2
+}
 
 Guard(){
   if [[ -n $OFS ]]; then
@@ -62,7 +153,6 @@ Guard(){
   else
     OTTY=$(stty -g)
     stty sane min 0 time 0
-    # ssty erase ^?
   fi
 }
 
@@ -111,7 +201,7 @@ Fill(){
   echo "\e[4$(COLOR $1)m"
 }
 
-Font(){
+Stroke(){
   echo "\e[9$(COLOR $1)m"
 }
 
@@ -148,7 +238,7 @@ Text(){
   # 2. row
   # 3. text
   # 4. color
-  echo "$(Focus $1 $2)$(Font $4)$3"
+  echo "$(Focus $1 $2)$(Stroke $4)$3"
 }
 
 Box(){
@@ -173,7 +263,7 @@ Label(){
   # 5. color
   # 6. fill
   local start=$(Box $1 $2 1 1 $6)
-  local text=$(Text $(( $1 + 1 )) $(($2 + 1)) $4 $5)
+  local text=$(Text $(( $1 + 1 )) $(($2 + 1)) "$4" $5)
   local end=$(Box $(( $1 + ${#4} + 1 )) $2 $(( $3 - ${#4} - 1 )) 1 $6)
   echo "$start$text$end"
 }
@@ -185,7 +275,7 @@ Field(){
   # 4. text
   # 5. color
   # 6. fill
-  local label=$(Label $1 $2 $3 $4 $5 $6)
+  local label=$(Label $1 $2 $3 "$4" $5 $6)
   local start=$(Box $1 $(( $2 + 1 )) 1 1 $6)
   local field=$(Box $(( $1 + 1 )) $(( $2 + 1 )) $(( $3 - 2 )) 1 0)
   local end=$(Box $(( $1 + $3 - 1 )) $(( $2 + 1 )) 1 1 $6)
@@ -194,157 +284,118 @@ Field(){
 }
 
 Header(){
-  local form_name=$(Label $1 $2 $3 $4 $5 $6)
+  local form_name=$(Label $1 $2 $3 "$4" $5 $6)
   local padding=$(Box $1 $(( $2 + 1 )) $3 2 $6)
   echo "$form_name$padding"
-}
-
-Button(){
-  echo $(Label $1 $2 $3 $4 $5 $6)
 }
 
 # Construction
 # ------------
 
 Form(){
-  local id=$1
   local field_height=3
-  local header_height=3
-  local first_col=$(( $x + $w + 10 ))
-  local first_row=$(( $y + $field_height ))
+  local left_padding=10
+  local form_x=$(( $x + $width + $left_padding ))
 
-  headers+=($(Header $first_col $y $w $id $FORM_FONT_COLOR $FORM_COLOR))
-  local r_i
-  local row
-  for r_i in ${!arg_fields[@]}; do
-    row=$(( $r_i*$field_height + $first_row ))
-    fields+=($(Field $first_col $row $w ${arg_fields[$r_i]} $FORM_FONT_COLOR $FORM_COLOR))
-    fields_select+=($(Field $first_col $row $w ${arg_fields[$r_i]} $FONT_SELECT_COLOR $SELECT_COLOR))
-    option_values+=($(Focus $(( $first_col + 1 )) $(( $row + 2 )) ))
+  headers+=($(Header $form_x $y $width "$1" $FORM_FONT_COLOR $FORM_COLOR))
+  local field_y=$(( $field_height + $y ))
+  local field_index=$first_index
+  for field_index in $( seq $first_index $form_field_count ); do
+    local row_index=$(( $row_index + 1 ))
+    if (( $row_index > 0 )); then
+      field_y=$(( $row_index*$field_height + $y ))
+    fi
+    fields+=($(Field $form_x $field_y $width "${form_fields[$field_index]}" $FORM_FONT_COLOR $FORM_COLOR))
+    fields_select+=($(Field $form_x $field_y $width "${form_fields[$field_index]}" $FONT_SELECT_COLOR $SELECT_COLOR))
+    option_values+=($(Focus $(( $form_x + 1 )) $(( $field_y + 2 )) ))
   done
-  fields+=($(Button $first_col $(( $row + 3 )) $w $id $FORM_FONT_COLOR $FORM_COLOR))
-  fields_select+=($(Button $first_col $(( $row + 3 )) $w $id $FONT_SELECT_COLOR $SELECT_COLOR))
-  option_values+=($(Focus $first_col $(( $row + 3 )) ))
-
 }
 
 Spawn(){
   local x=2
   local y=2
-  local w=25
+  local width=25
 
-  declare -a input_args=($SAMPLE_INPUT)
-
-  declare -a arg_fields
-  local current_field_count
-  local form_name=''
-  local i_i
-  for i_i in ${!input_args[@]}; do
-    if [[ ${input_args[$i_i]:0:2} == '--' ]]; then
-      local nav_row=$(( ${#focus[*]} + $y - 2 ))
-      form_name=${input_args[$i_i]:2}
-      focus+=(0)
-      navigation+=($(Label $x $nav_row $w $form_name $PANEL_FONT_COLOR $PANEL_COLOR ))
-      navigation_select+=($(Label $x $nav_row $w $form_name $FONT_SELECT_COLOR $SELECT_COLOR))
-    elif [[ ${input_args[$i_i]:0:1} == "{" ]]; then
-      current_field_count=1
-      arg_fields=(${input_args[$i_i]:1})
-    elif [[ ${input_args[$i_i]: -1} == "}" ]]; then
-      arg_fields+=(${input_args[$i_i]:0: -1})
-      current_field_count=$(( $current_field_count + 2 ))
-      field_counts+=($current_field_count)
-
-      if (( ${#field_counts[*]} > 1 )); then
-        local form_idx=0
-        local count_i
-        for count_i in $(( ${#field_counts[*]} - 1 )); do
-          form_idx=$(( $form_idx + ${field_counts[$count_i]} ))
-        done
-        form_idxs+=($form_idx)
-      else
-        form_idxs+=(0)
-      fi
-
-      Form $form_name
-      arg_fields=()
-      current_field_count=0
-    else
-      arg_fields+=(${input_args[$i_i]})
-      current_field_count=$(( $current_field_count + 1 ))
-    fi
+  local name_index
+  for name_index in ${!form_names[@]}; do
+    local form_name=${form_names[$name_index]}
+    local navigation_y=$(( ${#focus[*]} + $y - 2 ))
+    local first_index=${field_starts[$name_index]}
+    local form_field_count=$(( $first_index + ${field_counts[$name_index]} - 1 ))
+    focus+=(0)
+    navigation+=($(Label $x $navigation_y $width "$form_name" $PANEL_FONT_COLOR $PANEL_COLOR ))
+    navigation_select+=($(Label $x $navigation_y $width "$form_name" $FONT_SELECT_COLOR $SELECT_COLOR))
+    Form "$form_name"
   done
 }
 
 # Destructure
 # -----------
 
-Draw(){
-  local fill=${colors["fill"]}
-
-  local output="\e[2J"
-  local form_end=$(( $field_count - $form_select - 1 ))
-  local form_top=$(( $selected + 1 ))
-  local nav_end=$(( $form_count - $panel_select - 1 ))
-  local nav_top=$(( $panel_select + 1 ))
-  local opt_end=$(( $form_end - 1 ))
-
-  output+="${navigation[@]:0:$panel_select}"
-  output+="${navigation_select[$panel_select]}"
-  output+="${navigation[@]:$nav_top:$nav_end}"
-
-  output+="${headers[$panel_select]}"
-  if (( $frame == 1 )); then
-    if (( $form_select > 0 )); then
-      output+="${fields[@]:$form_start:$form_select}$fill${option_values[@]:$form_start:$form_select}"      
-    fi
-    output+="${fields_select[$selected]}$fill"
-
-    if (( $opt_end > 0 )); then
-      output+="${fields[@]:$form_top:$form_end}$fill${option_values[@]:$form_top:$opt_end}"
-    else
-      output+="${fields[@]:$form_top:$form_end}$fill"
-    fi
-  else 
-    output+="${fields[@]:$form_start:$field_count}$fill${option_values[@]:$form_start:$field_count}"
+Debug(){
+  if [[ $1 == 0 ]]; then
+    echo -e "$(Focus 1 15)\n\
+      form_indices: ${field_starts[@]}\n\
+      form_names: ${form_names[@]}\n\
+      form_field_counts: ${field_counts[@]}\n\
+      form_commands: ${form_commands[@]}\n\
+      form_fields: ${form_fields[@]}\n\
+      user_values: ${user_values[@]}\n";
+    sleep 35;
+    exit 0;
+  else
+    output+="$(Focus 1 15)\n\
+      action: $action\n\
+      frame: $frame\n\
+      form: $form_select\n\
+      field: $field_select\n\
+      form_count: $form_count\n\
+      form_command: ${form_commands[$form_select]}\n\
+      field_count: $field_count\n\
+      field_start: $field_start\n\
+      selected: $selected\n";
   fi
-
-  echo -e $output
+  return 0
 }
 
-Debug(){
-  echo -e "$(Focus 1 15)\n\
-    action: $action\n\
-    frame: $frame\n\
-    form: $panel_select\n\
-    field: $form_select\n\
-    form_count: $form_count\n\
-    field_count: $field_count\n\
-    form_start: $form_start\n\
-    selected: $selected\n\
-    form_indices: ${form_idxs[@]}"
+Draw(){
+  output="\e[2J"
+  local form_end_count=$(( $field_count - $field_select - 1 ))
+  local selected_next=$(( $selected + 1 ))
+  local nav_end=$(( $form_count - $form_select - 1 ))
+  local nav_top=$(( $form_select + 1 ))
+
+  output+="${navigation[@]:0:$form_select}${navigation_select[$form_select]}${navigation[@]:$nav_top:$nav_end}${headers[$form_select]}"
+
+  if (( $frame == 1 )); then
+    output+="${fields[@]:$field_start:$field_select}${fields_select[$selected]}$fill_color${option_values[@]:$field_start:$field_select}"
+    output+="${fields[@]:$selected_next:$form_end_count}$fill_color${option_values[@]:$selected_next:$form_end_count}"
+  else 
+    output+="${fields[@]:$field_start:$field_count}$fill_color${option_values[@]:$field_start:$field_count}"
+  fi
+
+  return 0
 }
 
 Render(){
   local frame=${focus[0]}
-  local panel_select=${focus[1]}
-  local form_index=$(( $panel_select + 2 ))
-  local form_select=${focus[$form_index]}
+  local form_select=${focus[1]}
+  local form_index=$(( $form_select + 2 ))
+  local field_select=${focus[$form_index]}
   local form_count=${#navigation[*]}
-  local field_count=${field_counts[$panel_select]}
-  local form_start=${form_idxs[$panel_select]}
-  local selected=$(( $form_start + $form_select ))
-  local option_value=${option_values[$selected]}
+  local field_count=${field_counts[$form_select]}
+  local field_start=${field_starts[$form_select]}
+  local selected=$(( $field_start + $field_select ))
+  local option_value="${option_values[$selected]}"
 
   Draw
-  Debug
-  if (( $form_select == $field_count - 1 )); then
-    echo -e "$option_value"
-    case $action in
-      EN) echo hi ;;
-    esac
-  else
-    echo -en "${colors["font"]}$option_value"
-  fi
+  (( $debug == 0 )) && Debug
+  case $action in
+    UP|DN|TB) echo -e "$output" ;;&
+    IN|BS) echo -e "$output" ;;&
+    *) echo -en "$font_color$option_value"
+  esac
+
   return 0
 }
 
@@ -353,29 +404,29 @@ Render(){
 
 Control(){
   local frame=${focus[0]}
-  local panel_select=${focus[1]}
-  local form_index=$(( $panel_select + 2 ))
-  local form_select=${focus[$form_index]}
+  local form_select=${focus[1]}
+  local form_index=$(( $form_select + 2 ))
+  local field_select=${focus[$form_index]}
   local form_count=${#navigation[*]}
-  local field_count=${field_counts[$panel_select]}
-  local form_start=${form_idxs[$panel_select]}
-  local selected=$(( $form_start + $form_select ))
-  local option_value=${option_values[$selected]}
+  local field_count=${field_counts[$form_select]}
+  local field_start=${field_starts[$form_select]}
+  local selected=$(( $field_start + $field_select ))
+  local option_value="${option_values[$selected]}"
 
   case $action in
     EN) 
-      option_values[$selected]="";
+      eval ${form_commands[$form_select]}
       return 0 ;;
     UP)
       case $frame in
-        0) focus[1]=$(Decrease $panel_select) ;;
-        1) focus[$form_index]=$(Decrease $form_select) ;;
+        0) focus[1]=$(Decrease $form_select) ;;
+        1) focus[$form_index]=$(Decrease $field_select) ;;
       esac
       return 0 ;;
     DN)
       case $frame in
-        0) focus[1]=$(Increase $panel_select $form_count ) ;;
-        1) focus[$form_index]=$(Increase $form_select $field_count) ;;
+        0) focus[1]=$(Increase $form_select $form_count ) ;;
+        1) focus[$form_index]=$(Increase $field_select $field_count) ;;
       esac
       return 0 ;;
     BS) 
@@ -387,9 +438,9 @@ Control(){
       (( $frame == 0 )) && focus[0]=1 || focus[0]=0;
       return 0 ;;
     IN)
-      (( $frame == 1 && $form_select < $field_count - 1 )) && option_values[$selected]="$option_value$input";
+      (( $frame == 1 && $field_select < $field_count )) && option_values[$selected]="$option_value$input";
       return 0 ;;
-    *) return 1
+    *) return 1 ;;
   esac
 
   return 1
@@ -424,15 +475,19 @@ Listen(){
 # -----------
 
 Start(){
-  Guard
   Render
-  echo -e "$(Resize 44 88)\e%G\e]50;Cascadia Mono\a"
+  echo -e "$(Resize 44 88)\e%G\e]50;Cascadia Mono\a$output"
 }
 
 Spin(){
   local input=""
   local action=''
   local output=""
+
+  local font_color=$(Stroke $FONT_COLOR)
+  local fill_color=$(Fill $FILL_COLOR)
+
+  Start
   while Listen; do
     if Control; then
       Render
@@ -448,28 +503,19 @@ Stop(){
 }
 
 Core(){
-  # Metadata
-  declare -a -i form_idxs=()
-  declare -a -i field_counts=()
   # State
   declare -a -i focus=(0 0)
   declare -a option_values=()
 
-  # Output references
-  declare -a colors=( 
-    ['font']=$(Font $FONT_COLOR)
-    ['fill']=$(Fill $FILL_COLOR)
-  )
   # Layout
-  declare -a headers=()
-  declare -a buttons=()
-  declare -a fields=()
   declare -a navigation=()
+  declare -a headers=()
+  declare -a fields=()
   declare -a fields_select=()
   declare -a navigation_select=()
 
   Spawn
-  Start
+  Guard
   Spin
   Stop
 }
@@ -477,7 +523,19 @@ Core(){
 # ----
 
 Hud(){
+  local debug=1
+  # Argument Data
+  declare -a form_names=()
+  declare -a form_commands=()
+  declare -a form_fields=()
+  declare -a user_values=()
+  # Metadata
+  declare -a -i field_starts=()
+  declare -a -i field_counts=()
+
+  Initialize "$@" || Debug $debug
   Core
 }
 
-Hud
+Hud load -d --commit="git add -A . && git commit -m (message: default option, option 1, {echo blah}) && git push (origin) (blah)" --echo="echo charles (hi,bye) && echo (haha,hihi)"
+ 
